@@ -12,7 +12,7 @@ Kalshi prices these contracts as probabilities. A Yes contract at $0.70 means th
 
 BTC price movements within a 15-minute window have strong momentum. If BTC has moved up 0.3% from the floor strike four minutes into the window, it tends to still be above the floor when the window closes — not always, but far more often than chance. The key insight is that **the larger the move, the more predictive it is.**
 
-This was validated empirically across 6,370 historical KXBTC15M markets (90 days of data). The win rate — how often betting in the direction of BTC's current move produces a winning outcome — depends heavily on two things:
+We validated this empirically across 6,370 historical KXBTC15M markets (90 days of data). The win rate — how often betting in the direction of BTC's current move produces a winning outcome — depends heavily on two things:
 
 1. **How far BTC has moved** from the floor strike
 2. **How many minutes into the window we are**
@@ -65,9 +65,9 @@ We built a lookup table from 6,370 historical markets, bucketed into 5 magnitude
 | 0.20–0.50% | 86% | 92% | 96% | 94% |
 | Over 0.50% | 95% | 98% | 99% | — |
 
-This replaces a simpler 1D table (which only knew what minute it was, not how far BTC had moved). The 2D table correctly identifies that a 0.02% move at minute 10 is still only worth a 63% fair price, while the old table would have blindly used 80%. This more accurate fair price leads to more accurate mispricing detection — we only size up when Kalshi is genuinely wrong.
+We previously used a simpler 1D table that only accounted for the current minute, not how far BTC had moved. The 2D table correctly identifies that a 0.02% move at minute 10 is still only worth a 63% fair price, while the old table would have blindly used 80%. The more accurate fair price leads to more accurate mispricing detection — we only size up when Kalshi is genuinely wrong.
 
-It also makes the old "dead zone" filter (which hard-blocked bets when BTC was too close to the floor) unnecessary. Tiny-move cells naturally have fair prices close to Kalshi's price, so mispricing is small, so the computed bet is tiny — below the minimum threshold and skipped automatically.
+The 2D table also replaces an old "dead zone" hard filter that blocked all bets when BTC was too close to the floor. With the 2D table we don't need it — tiny-move cells naturally produce fair prices close to Kalshi's price, so the computed mispricing is small and the bet shrinks to nothing automatically.
 
 ---
 
@@ -75,7 +75,7 @@ It also makes the old "dead zone" filter (which hard-blocked bets when BTC was t
 
 Rather than placing one bet at minute 5 and waiting, the system re-evaluates every minute from minute 4 through minute 13. Each minute it looks at the current BTC price, recomputes fair value, checks Kalshi's current quote, and decides whether to add to its position.
 
-This is called delta hedging — borrowing the concept from options trading where you continuously adjust a position to track a changing signal. The name here is loose: we're not hedging in the traditional risk-reduction sense, we're continuously updating a directional bet as new information arrives.
+We use a strategy called delta hedging, borrowed from options trading, where you continuously adjust a position as new information arrives rather than committing to a fixed bet upfront. The name is a loose analogy — we're not hedging in the traditional risk-reduction sense, we're continuously updating a directional bet as BTC's price evolves.
 
 **Target mode** (the default) maintains a desired total exposure for each side and only bets the gap. If at minute 4 we compute a target of $200 on Yes and place $200, then at minute 5 the target recomputes to $180 (BTC moved a little less), we place nothing — we're already above target. If at minute 6 it rises to $250, we place the $50 gap. This means:
 
@@ -110,7 +110,7 @@ Not all hours are equally active. Analysis of the historical data shows that eve
 | 18:00 | 2pm ET | US afternoon session |
 | 22:00–23:00 | 6–7pm ET | Asian session open |
 
-The system supports an optional filter to only trade specific hours, configurable without code changes. Currently set to trade all 24 hours.
+We support an optional filter to only trade specific hours, configurable without code changes. Currently set to trade all 24 hours.
 
 ---
 
