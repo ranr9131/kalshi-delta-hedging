@@ -1,0 +1,25 @@
+# Secrets
+live/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Data / cache (large files, regeneratable)
+data/cache/
+data/logs/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
