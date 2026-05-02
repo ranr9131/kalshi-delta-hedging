@@ -10,6 +10,8 @@ from kalshi_auth import make_auth_headers
 BASE_URL = "https://api.elections.kalshi.com"
 SERIES   = "KXBTC15M"
 
+FILL_BUFFER_CENTS = 2  # absorbs ~300ms price movement between WS read and order landing
+
 
 def get_open_market() -> dict | None:
     """
@@ -57,15 +59,14 @@ def place_order(
     count: fractional contracts supported (fractional_trading_enabled=true).
     """
     if side == "yes":
-        yes_price_dollars = float(market["yes_ask_dollars"])
-        cost_per_contract = yes_price_dollars
+        yes_price_cents   = round(float(market["yes_ask_dollars"]) * 100) + FILL_BUFFER_CENTS
+        cost_per_contract = yes_price_cents / 100.0
     else:
-        yes_price_dollars = float(market["yes_bid_dollars"])
-        cost_per_contract = 1.0 - yes_price_dollars   # No price = no_ask
+        yes_price_cents   = round(float(market["yes_bid_dollars"]) * 100) - FILL_BUFFER_CENTS
+        cost_per_contract = 1.0 - yes_price_cents / 100.0
 
-    yes_price_cents = round(yes_price_dollars * 100)
-    count = round(stake_dollars / cost_per_contract, 2)   # fractional ok
-    count = max(0.01, count)
+    yes_price_cents = max(1, min(99, yes_price_cents))
+    count = max(1, round(stake_dollars / cost_per_contract))
 
     path = "/trade-api/v2/portfolio/orders"
     body = {
@@ -80,8 +81,30 @@ def place_order(
 
     headers = make_auth_headers(private_key, api_key_id, "POST", path)
     resp = requests.post(BASE_URL + path, json=body, headers=headers, timeout=10)
-    resp.raise_for_status()
+    if not resp.ok:
+        raise requests.HTTPError(
+            f"{resp.status_code} {resp.reason}: {resp.text}", response=resp
+        )
     return resp.json()
+
+
+def cancel_order(private_key, api_key_id: str, order_id: str) -> bool:
+    """Cancel a resting order. Returns True if cancelled successfully."""
+    path = f"/trade-api/v2/portfolio/orders/{order_id}"
+    headers = make_auth_headers(private_key, api_key_id, "DELETE", path)
+    try:
+        resp = requests.delete(BASE_URL + path, headers=headers, timeout=10)
+        return resp.ok
+    except Exception:
+        return False
+
+
+def get_order_status(private_key, api_key_id: str, order_id: str) -> dict:
+    path = f"/trade-api/v2/portfolio/orders/{order_id}"
+    headers = make_auth_headers(private_key, api_key_id, "GET", path)
+    resp = requests.get(BASE_URL + path, headers=headers, timeout=10)
+    resp.raise_for_status()
+    return resp.json().get("order", {})
 
 
 def get_market_result(ticker: str) -> str | None:

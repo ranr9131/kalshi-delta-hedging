@@ -21,6 +21,7 @@ from dotenv import dotenv_values
 
 import btc_feed
 import kalshi_auth
+import kalshi_feed
 import kalshi_trade
 import strategy
 
@@ -42,13 +43,11 @@ ACTIVE_HOURS: set[int] | None = (
     if _active_hours_raw else None
 )
 
-PRIVATE_KEY = None
-if not PAPER_MODE:
-    raw_pem = env.get("KALSHI_PRIVATE_KEY", "")
-    if not raw_pem:
-        print("ERROR: KALSHI_PRIVATE_KEY not set in .env. Set PAPER_MODE=true or add the key.")
-        sys.exit(1)
-    PRIVATE_KEY = kalshi_auth.load_private_key(raw_pem)
+raw_pem = env.get("KALSHI_PRIVATE_KEY", "")
+if not raw_pem and not PAPER_MODE:
+    print("ERROR: KALSHI_PRIVATE_KEY not set in .env. Set PAPER_MODE=true or add the key.")
+    sys.exit(1)
+PRIVATE_KEY = kalshi_auth.load_private_key(raw_pem) if raw_pem else None
 
 # ── Log paths ─────────────────────────────────────────────────────────────────
 _dir = os.path.dirname(os.path.abspath(__file__))
@@ -194,18 +193,34 @@ def get_btc_with_retry() -> float | None:
 
 
 def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str | None]:
-    last_err = None
+    """
+    Place an order. If it rests (market moved between fetch and submit),
+    cancel it, re-fetch the market, and retry once at the updated price.
+    """
+    current_market = market
     for attempt in range(2):
         try:
-            resp     = kalshi_trade.place_order(PRIVATE_KEY, API_KEY_ID, ticker, side, market, stake)
-            order_id = resp.get("order", {}).get("order_id") or resp.get("order_id", "unknown")
+            resp     = kalshi_trade.place_order(PRIVATE_KEY, API_KEY_ID, ticker, side, current_market, stake)
+            order    = resp.get("order", {})
+            order_id = order.get("order_id", "unknown")
+            status   = order.get("status", "")
+
+            if status == "resting":
+                log.warning(f"  Order {order_id} is resting (market moved). Cancelling and retrying...")
+                kalshi_trade.cancel_order(PRIVATE_KEY, API_KEY_ID, order_id)
+                if attempt == 0:
+                    try:
+                        current_market = kalshi_trade.get_open_market() or current_market
+                    except Exception:
+                        pass
+                    continue
+
             return order_id, None
         except Exception as e:
-            last_err = e
             log.error(f"Order attempt {attempt+1} failed: {e}")
             if attempt == 0:
-                time.sleep(2)
-    return None, str(last_err)
+                time.sleep(1)
+    return None, "order rested or failed after retry"
 
 
 def wait_for_close(close_time_str: str) -> None:
@@ -298,17 +313,26 @@ def run_dh_loop(
             continue
         btc_age = btc_feed.get_price_age()
 
-        try:
-            market = kalshi_trade.get_open_market()
-        except Exception as e:
-            log.warning(f"Market refresh failed at T+{minute}: {e}. Skipping interval.")
-            continue
-        if market is None:
-            log.warning(f"No open market at T+{minute}. Skipping interval.")
-            continue
+        # Use WebSocket prices (real-time) if fresh; fall back to REST on stale feed.
+        ws_bid = kalshi_feed.get_bid()
+        ws_ask = kalshi_feed.get_ask()
+        ws_age = kalshi_feed.get_age()
+        if ws_bid is not None and ws_ask is not None and ws_age < 10:
+            yes_bid = ws_bid
+            yes_ask = ws_ask
+        else:
+            log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{minute}, falling back to REST.")
+            try:
+                market = kalshi_trade.get_open_market()
+            except Exception as e:
+                log.warning(f"REST fallback failed at T+{minute}: {e}. Skipping interval.")
+                continue
+            if market is None:
+                log.warning(f"No open market at T+{minute}. Skipping interval.")
+                continue
+            yes_bid = float(market["yes_bid_dollars"])
+            yes_ask = float(market["yes_ask_dollars"])
 
-        yes_bid    = float(market["yes_bid_dollars"])
-        yes_ask    = float(market["yes_ask_dollars"])
         spread     = round(yes_ask - yes_bid, 4)
         kalshi_mid = (yes_bid + yes_ask) / 2
 
@@ -318,13 +342,14 @@ def run_dh_loop(
 
         fair = get_fair_price_2d(minute, abs_pct_move)
 
+        buf = kalshi_trade.FILL_BUFFER_CENTS / 100
         if direction_up:
-            mispricing = fair - kalshi_mid
+            mispricing = fair - (yes_ask + buf)   # true edge after buffer cost
             g_misprice = strategy.sigmoid_mispricing(mispricing)
             target_yes = BASE_STAKE * f_btc * g_misprice
             target_no  = 0.0
         else:
-            mispricing = kalshi_mid - (1.0 - fair)
+            mispricing = fair - ((1.0 - yes_bid) + buf)  # P(direction correct) - no_fill cost
             g_misprice = strategy.sigmoid_mispricing(mispricing)
             target_no  = BASE_STAKE * f_btc * g_misprice
             target_yes = 0.0
@@ -337,11 +362,13 @@ def run_dh_loop(
             bet_no  = target_no
 
         direction_label = "yes" if direction_up else "no"
+
         log.info(
             f"DH T+{minute}: {direction_label.upper()} | "
             f"cutoff=${btc_t0:,.2f} now=${btc_now:,.2f} ({'+' if direction_up else '-'}{abs_pct_move:.4f}%) | "
-            f"f={f_btc:.3f} g={g_misprice:.3f} mis={mispricing:+.3f} | "
-            f"target_yes=${target_yes:.2f} target_no=${target_no:.2f} | "
+            f"bid={yes_bid:.3f}/ask={yes_ask:.3f} mid={kalshi_mid:.3f} | "
+            f"fair={fair:.3f} mis={mispricing:+.3f} | "
+            f"f={f_btc:.3f} g={g_misprice:.3f} | "
             f"gap_yes=${bet_yes:.2f} gap_no=${bet_no:.2f}"
         )
 
@@ -368,17 +395,19 @@ def run_dh_loop(
         }
 
         if bet_yes >= MIN_BET:
-            fill  = yes_ask
-            count = round(bet_yes / fill, 2)
+            fill  = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            count = max(1, round(bet_yes / fill))
+            log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
             if PAPER_MODE:
                 order_id, order_result = "paper", "paper"
+                log.info("     [PAPER] no order submitted")
             else:
                 order_id, err = place_order_with_retry(ticker, "yes", market, bet_yes)
                 order_result  = "ok" if order_id else f"error: {err}"
                 if order_id:
-                    log.info(f"  YES order placed: {order_id}")
+                    log.info(f"     YES order placed: {order_id}")
                 else:
-                    log.error(f"  YES order failed: {err}")
+                    log.error(f"     YES order FAILED: {err}")
             yes_bets.append((bet_yes, fill, count, minute))
             yes_exposure += bet_yes
             log_bet({**base_row,
@@ -393,17 +422,19 @@ def run_dh_loop(
             })
 
         if bet_no >= MIN_BET:
-            fill  = 1.0 - yes_bid
-            count = round(bet_no / fill, 2)
+            fill  = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            count = max(1, round(bet_no / fill))
+            log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
             if PAPER_MODE:
                 order_id, order_result = "paper", "paper"
+                log.info("     [PAPER] no order submitted")
             else:
                 order_id, err = place_order_with_retry(ticker, "no", market, bet_no)
                 order_result  = "ok" if order_id else f"error: {err}"
                 if order_id:
-                    log.info(f"  NO order placed: {order_id}")
+                    log.info(f"     NO order placed: {order_id}")
                 else:
-                    log.error(f"  NO order failed: {err}")
+                    log.error(f"     NO order FAILED: {err}")
             no_bets.append((bet_no, fill, count, minute))
             no_exposure += bet_no
             log_bet({**base_row,
@@ -450,12 +481,16 @@ def run_window():
         return
 
     ticker     = market["ticker"]
+    close_time = market.get("close_time", "")
+    btc_t0     = float(market["floor_strike"])
+
+    # Subscribe WebSocket to this window's ticker for real-time bid/ask.
+    kalshi_feed.set_ticker(ticker)
+
     yes_bid    = float(market["yes_bid_dollars"])
     yes_ask    = float(market["yes_ask_dollars"])
     spread     = round(yes_ask - yes_bid, 4)
     kalshi_mid = (yes_bid + yes_ask) / 2
-    close_time = market.get("close_time", "")
-    btc_t0     = float(market["floor_strike"])
 
     btc_entry = get_btc_with_retry()
     if btc_entry is None:
@@ -474,8 +509,9 @@ def run_window():
         stake, abs_pct_move, mispricing, f_btc, g_misprice = strategy.compute_stake(
             btc_t0, btc_entry, kalshi_mid, side, BASE_STAKE
         )
-        fill_price = yes_ask if side == "yes" else (1.0 - yes_bid)
-        count      = round(stake / fill_price, 2)
+        buf        = kalshi_trade.FILL_BUFFER_CENTS / 100
+        fill_price = (yes_ask + buf) if side == "yes" else ((1.0 - yes_bid) + buf)
+        count      = max(1, round(stake / fill_price))
 
         log.info(
             f"Decision: {side.upper()} | BTC {'+' if btc_entry>btc_t0 else ''}{abs_pct_move:.4f}% | "
@@ -558,6 +594,13 @@ def run_window():
             "outcome":         outcome,
             "cumulative_pnl":  round(_cumulative_pnl, 4),
         })
+        try:
+            nxt = kalshi_trade.get_open_market()
+            if nxt and nxt["ticker"] != ticker:
+                kalshi_feed.set_ticker(nxt["ticker"])
+                log.info(f"Pre-subscribed to next window: {nxt['ticker']}")
+        except Exception:
+            pass
         return
 
     # ── dh-target / dh-additive mode: DH loop ────────────────────────────────
@@ -608,6 +651,16 @@ def run_window():
         "cumulative_pnl":  round(_cumulative_pnl, 4),
     })
 
+    # Pre-subscribe WebSocket to next window's ticker so it's ready at T+4.
+    # The next market opens at T+15; we have ~4 minutes before T+4 of next window.
+    try:
+        nxt = kalshi_trade.get_open_market()
+        if nxt and nxt["ticker"] != ticker:
+            kalshi_feed.set_ticker(nxt["ticker"])
+            log.info(f"Pre-subscribed to next window: {nxt['ticker']}")
+    except Exception:
+        pass
+
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
@@ -636,8 +689,15 @@ def main():
     else:
         log.error("No BTC price received within 30s. Check network and Coinbase WebSocket. Exiting.")
         sys.exit(1)
-
     log.info(f"BTC feed live: ${btc_feed.get_price():,.2f}")
+
+    # Start Kalshi WebSocket feed for real-time bid/ask (REST API lags by 3-5c).
+    # Initial ticker will be set when first window opens via set_ticker().
+    if PRIVATE_KEY is not None:
+        kalshi_feed.start(PRIVATE_KEY, API_KEY_ID)
+        log.info("Kalshi WebSocket feed starting...")
+    else:
+        log.warning("No private key available — Kalshi WebSocket disabled, using REST prices (may be stale).")
 
     if not PAPER_MODE:
         balance = kalshi_trade.get_balance(PRIVATE_KEY, API_KEY_ID)
