@@ -82,7 +82,11 @@ WINDOW_LOG_FIELDS = [
 ]
 
 WINDOW_MINUTES       = 15
-DH_MINUTES           = list(range(4, 14))   # T+4 through T+13
+# DH cadence: evaluate every 30s from T+4:00 through T+13:00.
+DH_TICK_SECS         = 30
+DH_FIRST_TICK_SECS   = 4 * 60
+DH_LAST_TICK_SECS    = 13 * 60
+DH_OFFSETS_SECS      = list(range(DH_FIRST_TICK_SECS, DH_LAST_TICK_SECS + 1, DH_TICK_SECS))
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
 MAX_FILL_PRICE       = 0.97   # skip bets whose buffered fill price exceeds this
@@ -290,18 +294,21 @@ def run_dh_loop(
     close_time: str,
 ) -> tuple[list, list, float, float]:
     """
-    Run delta hedging from T+5 to T+10, placing bets on yes and/or no each minute.
+    Run delta hedging from T+4:00 to T+13:00 on a 30s cadence, placing bets on
+    yes and/or no each tick.
     Returns (yes_bets, no_bets, yes_exposure, no_exposure)
-    Each bet entry: (stake, fill_price, count, minute).
+    Each bet entry: (stake, fill_price, count, t_min).
     """
     yes_exposure = 0.0
     no_exposure  = 0.0
-    yes_bets: list[tuple[float, float, float, int]] = []
-    no_bets:  list[tuple[float, float, float, int]] = []
+    yes_bets: list[tuple[float, float, float, float]] = []
+    no_bets:  list[tuple[float, float, float, float]] = []
 
-    for minute in DH_MINUTES:
-        target_dt = window_ts + timedelta(minutes=minute)
-        remaining = (target_dt - datetime.now(timezone.utc)).total_seconds()
+    for offset_secs in DH_OFFSETS_SECS:
+        t_min      = offset_secs / 60.0           # fractional minute, for logging / dh_minute column
+        minute_idx = int(offset_secs // 60)       # integer minute, for 2D fair-price lookup
+        target_dt  = window_ts + timedelta(seconds=offset_secs)
+        remaining  = (target_dt - datetime.now(timezone.utc)).total_seconds()
         if remaining > 0:
             deadline = time.time() + remaining
             while time.time() < deadline and not _shutdown:
@@ -312,7 +319,7 @@ def run_dh_loop(
 
         btc_now = get_btc_with_retry()
         if btc_now is None:
-            log.warning(f"BTC unavailable at T+{minute}, skipping interval.")
+            log.warning(f"BTC unavailable at T+{t_min:.1f}, skipping interval.")
             continue
         btc_age = btc_feed.get_price_age()
 
@@ -330,14 +337,14 @@ def run_dh_loop(
                 "yes_ask_dollars": yes_ask,
             }
         else:
-            log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{minute}, falling back to REST.")
+            log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{t_min:.1f}, falling back to REST.")
             try:
                 market = kalshi_trade.get_open_market()
             except Exception as e:
-                log.warning(f"REST fallback failed at T+{minute}: {e}. Skipping interval.")
+                log.warning(f"REST fallback failed at T+{t_min:.1f}: {e}. Skipping interval.")
                 continue
             if market is None:
-                log.warning(f"No open market at T+{minute}. Skipping interval.")
+                log.warning(f"No open market at T+{t_min:.1f}. Skipping interval.")
                 continue
             yes_bid = float(market["yes_bid_dollars"])
             yes_ask = float(market["yes_ask_dollars"])
@@ -349,7 +356,7 @@ def run_dh_loop(
         f_btc        = strategy.sigmoid_btc(abs_pct_move)
         direction_up = btc_now > btc_t0
 
-        fair = get_fair_price_2d(minute, abs_pct_move)
+        fair = get_fair_price_2d(minute_idx, abs_pct_move)
 
         buf = kalshi_trade.FILL_BUFFER_CENTS / 100
         if direction_up:
@@ -373,7 +380,7 @@ def run_dh_loop(
         direction_label = "yes" if direction_up else "no"
 
         log.info(
-            f"DH T+{minute}: {direction_label.upper()} | "
+            f"DH T+{t_min:.1f}: {direction_label.upper()} | "
             f"cutoff=${btc_t0:,.2f} now=${btc_now:,.2f} ({'+' if direction_up else '-'}{abs_pct_move:.4f}%) | "
             f"bid={yes_bid:.3f}/ask={yes_ask:.3f} mid={kalshi_mid:.3f} | "
             f"fair={fair:.3f} mis={mispricing:+.3f} | "
@@ -386,7 +393,7 @@ def run_dh_loop(
             "mode":               MODE,
             "ticker":             ticker,
             "close_time":         close_time,
-            "dh_minute":          minute,
+            "dh_minute":          round(t_min, 2),
             "btc_t0":             round(btc_t0, 2),
             "btc_now":            round(btc_now, 2),
             "btc_price_age_secs": round(btc_age, 2),
@@ -427,7 +434,7 @@ def run_dh_loop(
                 else:
                     log.error(f"     YES order FAILED: {err}")
             if order_id:   # only count bet toward exposure if it actually placed
-                yes_bets.append((bet_yes, fill, count, minute))
+                yes_bets.append((bet_yes, fill, count, t_min))
                 yes_exposure += bet_yes
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure - (bet_yes if order_id else 0), 4),
@@ -464,7 +471,7 @@ def run_dh_loop(
                 else:
                     log.error(f"     NO order FAILED: {err}")
             if order_id:   # only count bet toward exposure if it actually placed
-                no_bets.append((bet_no, fill, count, minute))
+                no_bets.append((bet_no, fill, count, t_min))
                 no_exposure += bet_no
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure, 4),
