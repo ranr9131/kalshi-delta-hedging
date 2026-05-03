@@ -17,6 +17,10 @@ venv/
 data/cache/
 data/logs/
 
+# Live trader output logs (generated at runtime)
+live/trade_log.csv
+live/window_log.csv
+
 # Logs
 *.log
 

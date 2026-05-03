@@ -32,8 +32,13 @@ env = dotenv_values(_env_path)
 API_KEY_ID = env.get("KALSHI_API_KEY_ID", "")
 PAPER_MODE = env.get("PAPER_MODE", "true").lower() == "true"
 BASE_STAKE = float(env.get("BASE_STAKE", "100.0"))
-MODE       = env.get("MODE", "dh-target").lower()   # t+5 | dh-target | dh-additive
-MIN_BET    = float(env.get("MIN_BET", "5.0"))
+MODE         = env.get("MODE", "dh-target").lower()   # t+5 | dh-target | dh-additive
+MIN_BET      = float(env.get("MIN_BET", "5.0"))
+MAX_FILL     = float(env.get("MAX_FILL", "0.97"))     # skip bets where fill price exceeds this (liquidity concern)
+BETS_PER_MIN = int(env.get("BETS_PER_MIN", "4"))       # 1=60s, 2=30s, 4=15s intervals
+if BETS_PER_MIN not in (1, 2, 4):
+    print(f"ERROR: BETS_PER_MIN={BETS_PER_MIN} is invalid. Must be 1, 2, or 4.")
+    sys.exit(1)
 
 # ACTIVE_HOURS: comma-separated UTC hours to trade, e.g. "13,14,18,22".
 # Empty or unset = trade all 24 hours.
@@ -82,9 +87,11 @@ WINDOW_LOG_FIELDS = [
 ]
 
 WINDOW_MINUTES       = 15
-DH_MINUTES           = list(range(4, 14))   # T+4 through T+13
+DH_INTERVAL_SECS     = 60 // BETS_PER_MIN                       # 60, 30, or 15
+DH_START_SECS        = 4 * 60                                    # T+4:00
+DH_END_SECS          = 14 * 60 - DH_INTERVAL_SECS               # T+13:00 / T+13:30 / T+13:45
 # DH modes enter at T+4; t+5 mode still waits until T+5
-DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
+DECISION_OFFSET_SECS = DH_START_SECS if MODE.startswith("dh") else 5 * 60
 
 BTC_RETRY_ATTEMPTS   = 3
 BTC_RETRY_DELAY_SECS = 5
@@ -96,7 +103,7 @@ MAX_PRICE_AGE_SECS   = 10
 _FAIR_PRICE_2D: dict[tuple[int, int], tuple[float, float, int]] = {}
 
 _2D_CSV_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "logs", "minute_analysis_2d.csv"
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "logs", "minute_analysis_2d_15s_kxbtc15m.csv"
 )
 _2D_BUCKETS = [
     (0.000, 0.05), (0.050, 0.10), (0.100, 0.20), (0.200, 0.50), (0.500, float("inf")),
@@ -121,7 +128,7 @@ def _load_2d_table() -> int:
             bi = label_to_idx.get(row["bucket"])
             if bi is None:
                 continue
-            _FAIR_PRICE_2D[(int(row["minute"]), bi)] = (
+            _FAIR_PRICE_2D[(int(row["offset_secs"]), bi)] = (
                 float(row["win_rate"]),
                 float(row["avg_fill"]),
                 int(row["n"]),
@@ -137,13 +144,30 @@ def _get_bucket_idx(abs_pct: float) -> int:
     return len(_2D_BUCKETS) - 1
 
 
-def get_fair_price_2d(minute: int, abs_pct_move: float) -> float:
-    """2D empirical win rate for (minute, magnitude bucket). Falls back to 1D if cell is sparse."""
+def get_fair_price_2d(offset_secs: int, abs_pct_move: float) -> float:
+    """2D empirical win rate for (offset_secs, magnitude bucket). Falls back if cell is sparse."""
     bi    = _get_bucket_idx(abs_pct_move)
-    entry = _FAIR_PRICE_2D.get((minute, bi))
+    entry = _FAIR_PRICE_2D.get((offset_secs, bi))
     if entry is not None and entry[2] >= _2D_MIN_N:
         return entry[0]
-    return _FAIR_PRICE_BY_MINUTE_FALLBACK.get(minute, strategy.FAIR_PRICE)
+    # Try nearest minute boundary in the table
+    minute_offset = (offset_secs // 60) * 60
+    entry = _FAIR_PRICE_2D.get((minute_offset, bi))
+    if entry is not None and entry[2] >= _2D_MIN_N:
+        return entry[0]
+    return _FAIR_PRICE_BY_MINUTE_FALLBACK.get(offset_secs // 60, strategy.FAIR_PRICE)
+
+
+# Option-3 f-function: sigmoid of 2D win rate instead of raw magnitude.
+# Center=0.65 means f=1.5 at 65% win rate; simulation showed +9.1pp ROI vs magnitude-based f.
+_WR_CENTER       = 0.65
+_WR_K            = 20.0
+_SIGMOID_MAX_MULT = 3.0
+
+
+def sigmoid_winrate(win_rate: float) -> float:
+    import math
+    return _SIGMOID_MAX_MULT / (1 + math.exp(-_WR_K * (win_rate - _WR_CENTER)))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -214,6 +238,8 @@ def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str
                     except Exception:
                         pass
                     continue
+                log.error(f"  Order still resting on attempt 2 — giving up.")
+                break
 
             return order_id, None
         except Exception as e:
@@ -293,11 +319,12 @@ def run_dh_loop(
     """
     yes_exposure = 0.0
     no_exposure  = 0.0
+    net_exposure = 0.0   # positive = net YES, negative = net NO (mirrors Kalshi netting)
     yes_bets: list[tuple[float, float, float, int]] = []
     no_bets:  list[tuple[float, float, float, int]] = []
 
-    for minute in DH_MINUTES:
-        target_dt = window_ts + timedelta(minutes=minute)
+    for offset_secs in range(DH_START_SECS, DH_END_SECS + 1, DH_INTERVAL_SECS):
+        target_dt = window_ts + timedelta(seconds=offset_secs)
         remaining = (target_dt - datetime.now(timezone.utc)).total_seconds()
         if remaining > 0:
             deadline = time.time() + remaining
@@ -307,9 +334,11 @@ def run_dh_loop(
         if _shutdown:
             break
 
+        t_label = f"T+{offset_secs//60}:{offset_secs%60:02d}"
+
         btc_now = get_btc_with_retry()
         if btc_now is None:
-            log.warning(f"BTC unavailable at T+{minute}, skipping interval.")
+            log.warning(f"BTC unavailable at {t_label}, skipping interval.")
             continue
         btc_age = btc_feed.get_price_age()
 
@@ -321,26 +350,27 @@ def run_dh_loop(
             yes_bid = ws_bid
             yes_ask = ws_ask
         else:
-            log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{minute}, falling back to REST.")
+            log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at {t_label}, falling back to REST.")
             try:
                 market = kalshi_trade.get_open_market()
             except Exception as e:
-                log.warning(f"REST fallback failed at T+{minute}: {e}. Skipping interval.")
+                log.warning(f"REST fallback failed at {t_label}: {e}. Skipping interval.")
                 continue
             if market is None:
-                log.warning(f"No open market at T+{minute}. Skipping interval.")
+                log.warning(f"No open market at {t_label}. Skipping interval.")
                 continue
             yes_bid = float(market["yes_bid_dollars"])
             yes_ask = float(market["yes_ask_dollars"])
 
+        order_market = {"yes_ask_dollars": str(yes_ask), "yes_bid_dollars": str(yes_bid)}
         spread     = round(yes_ask - yes_bid, 4)
         kalshi_mid = (yes_bid + yes_ask) / 2
 
         abs_pct_move = abs(btc_now - btc_t0) / btc_t0 * 100
-        f_btc        = strategy.sigmoid_btc(abs_pct_move)
         direction_up = btc_now > btc_t0
 
-        fair = get_fair_price_2d(minute, abs_pct_move)
+        fair  = get_fair_price_2d(offset_secs, abs_pct_move)
+        f_btc = sigmoid_winrate(fair)
 
         buf = kalshi_trade.FILL_BUFFER_CENTS / 100
         if direction_up:
@@ -355,8 +385,10 @@ def run_dh_loop(
             target_yes = 0.0
 
         if MODE == "dh-target":
-            bet_yes = max(0.0, target_yes - yes_exposure)
-            bet_no  = max(0.0, target_no  - no_exposure)
+            # Use net exposure so Kalshi's position netting is accounted for:
+            # net_exposure > 0 means we hold YES; < 0 means we hold NO.
+            bet_yes = max(0.0, target_yes - max(net_exposure, 0.0))
+            bet_no  = max(0.0, target_no  - max(-net_exposure, 0.0))
         else:  # dh-additive
             bet_yes = target_yes
             bet_no  = target_no
@@ -364,7 +396,7 @@ def run_dh_loop(
         direction_label = "yes" if direction_up else "no"
 
         log.info(
-            f"DH T+{minute}: {direction_label.upper()} | "
+            f"DH {t_label}: {direction_label.upper()} | "
             f"cutoff=${btc_t0:,.2f} now=${btc_now:,.2f} ({'+' if direction_up else '-'}{abs_pct_move:.4f}%) | "
             f"bid={yes_bid:.3f}/ask={yes_ask:.3f} mid={kalshi_mid:.3f} | "
             f"fair={fair:.3f} mis={mispricing:+.3f} | "
@@ -377,7 +409,7 @@ def run_dh_loop(
             "mode":               MODE,
             "ticker":             ticker,
             "close_time":         close_time,
-            "dh_minute":          minute,
+            "dh_minute":          offset_secs,
             "btc_t0":             round(btc_t0, 2),
             "btc_now":            round(btc_now, 2),
             "btc_price_age_secs": round(btc_age, 2),
@@ -395,58 +427,90 @@ def run_dh_loop(
         }
 
         if bet_yes >= MIN_BET:
-            fill  = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
-            count = max(1, round(bet_yes / fill))
-            log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
-            if PAPER_MODE:
-                order_id, order_result = "paper", "paper"
-                log.info("     [PAPER] no order submitted")
+            fill = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            if fill > MAX_FILL:
+                log.info(f"  -> SKIP YES ${bet_yes:.2f} — fill {fill:.3f} > MAX_FILL {MAX_FILL:.2f} (liquidity concern)")
             else:
-                order_id, err = place_order_with_retry(ticker, "yes", market, bet_yes)
-                order_result  = "ok" if order_id else f"error: {err}"
-                if order_id:
-                    log.info(f"     YES order placed: {order_id}")
+                count = max(1, round(bet_yes / fill))
+                log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+                if PAPER_MODE:
+                    order_id, order_result = "paper", "paper"
+                    log.info("     [PAPER] no order submitted")
+                    placed = True
                 else:
-                    log.error(f"     YES order FAILED: {err}")
-            yes_bets.append((bet_yes, fill, count, minute))
-            yes_exposure += bet_yes
-            log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure - bet_yes, 4),
-                "no_exposure_before":  round(no_exposure, 4),
-                "bet_side":            "yes",
-                "stake":               round(bet_yes, 4),
-                "fill_price":          round(fill, 4),
-                "count":               count,
-                "order_id":            order_id or "none",
-                "order_result":        order_result,
-            })
+                    order_id, err = place_order_with_retry(ticker, "yes", order_market, bet_yes)
+                    order_result  = "ok" if order_id else f"error: {err}"
+                    if order_id:
+                        log.info(f"     YES order placed: {order_id}")
+                        placed = True
+                    else:
+                        log.error(f"     YES order FAILED: {err}")
+                        placed = False
+                if placed:
+                    yes_bets.append((bet_yes, fill, count, minute))
+                    yes_exposure += bet_yes
+                    net_exposure += bet_yes
+                    log_bet({**base_row,
+                    "yes_exposure_before": round(yes_exposure - bet_yes, 4),
+                    "no_exposure_before":  round(no_exposure, 4),
+                    "bet_side":            "yes",
+                    "stake":               round(bet_yes, 4),
+                    "fill_price":          round(fill, 4),
+                    "count":               count,
+                    "order_id":            order_id or "none",
+                    "order_result":        order_result,
+                })
+        elif direction_up:
+            if target_yes < MIN_BET:
+                if mispricing < 0:
+                    log.info(f"  -> SKIP YES — no edge: Kalshi ask ({yes_ask:.3f}) > fair ({fair:.3f}), mis={mispricing:+.3f}, target=${target_yes:.2f}")
+                else:
+                    log.info(f"  -> SKIP YES — BTC move too small for meaningful bet (f={f_btc:.3f} g={g_misprice:.3f}, target=${target_yes:.2f})")
+            else:
+                log.info(f"  -> SKIP YES — gap ${bet_yes:.2f} < MIN_BET (already hold ${net_exposure:.2f} of ${target_yes:.2f} target)")
 
         if bet_no >= MIN_BET:
-            fill  = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
-            count = max(1, round(bet_no / fill))
-            log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
-            if PAPER_MODE:
-                order_id, order_result = "paper", "paper"
-                log.info("     [PAPER] no order submitted")
+            fill = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            if fill > MAX_FILL:
+                log.info(f"  -> SKIP NO  ${bet_no:.2f} — fill {fill:.3f} > MAX_FILL {MAX_FILL:.2f} (liquidity concern)")
             else:
-                order_id, err = place_order_with_retry(ticker, "no", market, bet_no)
-                order_result  = "ok" if order_id else f"error: {err}"
-                if order_id:
-                    log.info(f"     NO order placed: {order_id}")
+                count = max(1, round(bet_no / fill))
+                log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+                if PAPER_MODE:
+                    order_id, order_result = "paper", "paper"
+                    log.info("     [PAPER] no order submitted")
+                    placed = True
                 else:
-                    log.error(f"     NO order FAILED: {err}")
-            no_bets.append((bet_no, fill, count, minute))
-            no_exposure += bet_no
-            log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure, 4),
-                "no_exposure_before":  round(no_exposure - bet_no, 4),
-                "bet_side":            "no",
-                "stake":               round(bet_no, 4),
-                "fill_price":          round(fill, 4),
-                "count":               count,
-                "order_id":            order_id or "none",
-                "order_result":        order_result,
-            })
+                    order_id, err = place_order_with_retry(ticker, "no", order_market, bet_no)
+                    order_result  = "ok" if order_id else f"error: {err}"
+                    if order_id:
+                        log.info(f"     NO order placed: {order_id}")
+                        placed = True
+                    else:
+                        log.error(f"     NO order FAILED: {err}")
+                        placed = False
+                if placed:
+                    no_bets.append((bet_no, fill, count, minute))
+                    no_exposure += bet_no
+                    net_exposure -= bet_no
+                    log_bet({**base_row,
+                        "yes_exposure_before": round(yes_exposure, 4),
+                        "no_exposure_before":  round(no_exposure - bet_no, 4),
+                        "bet_side":            "no",
+                        "stake":               round(bet_no, 4),
+                        "fill_price":          round(fill, 4),
+                        "count":               count,
+                        "order_id":            order_id or "none",
+                        "order_result":        order_result,
+                    })
+        elif not direction_up:
+            if target_no < MIN_BET:
+                if mispricing < 0:
+                    log.info(f"  -> SKIP NO  — no edge: Kalshi no ask ({1-yes_bid:.3f}) > fair ({fair:.3f}), mis={mispricing:+.3f}, target=${target_no:.2f}")
+                else:
+                    log.info(f"  -> SKIP NO  — BTC move too small for meaningful bet (f={f_btc:.3f} g={g_misprice:.3f}, target=${target_no:.2f})")
+            else:
+                log.info(f"  -> SKIP NO  — gap ${bet_no:.2f} < MIN_BET (already hold ${-net_exposure:.2f} of ${target_no:.2f} target)")
 
     return yes_bets, no_bets, yes_exposure, no_exposure
 

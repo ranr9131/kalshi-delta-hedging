@@ -25,19 +25,19 @@ A small move early in the window (say, 0.02% at minute 4) barely predicts the ou
 
 We don't bet a flat amount. We size each bet using two independent signals multiplied together.
 
-### Signal 1: How far has BTC moved?
+### Signal 1: How confident are we? (win-rate multiplier)
 
-The further BTC has moved from the floor strike, the more confident we are in the direction. We scale the bet size using a smooth S-curve (sigmoid function) over the magnitude of the BTC move.
+Rather than scaling directly on raw BTC magnitude, we use the 2D empirical win rate as the confidence signal — the same table entry that tells us the fair price also tells us how strong the bet should be.
 
-- A tiny move (under ~0.05%) produces a near-zero multiplier — almost nothing is bet.
-- Around 0.10% the multiplier starts climbing quickly.
-- Large moves (0.3%+) push the multiplier to its maximum of 3×.
+- Win rate near 57% (tiny move, early minute) → multiplier ~0.5× — almost nothing is bet.
+- Win rate at 65% → multiplier ~1.5× (the natural break-even zone).
+- Win rate at 80-95% → multiplier climbs toward 3×.
 
-The smooth curve avoids cliff edges — there's no sudden jump from "no bet" to "full bet" at an arbitrary threshold.
+This is more accurate than scaling on magnitude alone because it accounts for both how far BTC has moved *and* how many minutes remain. A 0.15% move at minute 4 and the same move at minute 12 produce the same magnitude but very different win rates — the signal sizes them differently.
 
-### Signal 2: How mispriced is Kalshi?
+### Signal 2: How mispriced is Kalshi? (mispricing multiplier)
 
-Once we know BTC's direction, we compare Kalshi's current price to what the price *should* be given the observed move. The "fair price" comes from the 2D empirical table — for example, if BTC is up 0.2% at minute 7, historical data says the win rate is about 92%. If Kalshi is only pricing Yes at 0.75, we have roughly 17 cents of edge on each dollar bet.
+Once we know BTC's direction, we compare Kalshi's current price to the 2D fair price. For example, if BTC is up 0.2% at minute 7, historical data says Yes should be worth ~92%. If Kalshi is only pricing Yes at 0.75, we have roughly 17 cents of edge on each dollar bet.
 
 We scale the bet size by how large this mispricing is — again using a smooth S-curve. At zero mispricing (Kalshi is correctly priced), we still bet, but at a neutral multiplier of 1×. The more Kalshi underprices our side, the more we bet — up to a 2× bonus. If Kalshi is actually overpriced against us, the multiplier drops below 1×, shrinking the bet.
 
@@ -45,45 +45,58 @@ We scale the bet size by how large this mispricing is — again using a smooth S
 
 The final bet size is:
 
-> **base stake × magnitude multiplier × mispricing multiplier**
+> **base stake × win-rate multiplier × mispricing multiplier**
 
-At maximum (large BTC move, heavily mispriced Kalshi): 3× × 2× = **6× the base stake**. In practice most bets fall in the 1-3× range.
+At maximum (high-confidence situation, heavily mispriced Kalshi): 3× × 2× = **6× the base stake**. In practice most bets fall in the 1-3× range.
 
 ---
 
 ## The 2D Fair Price Table
 
-The "fair price" — what a Yes contract should theoretically be worth — is not a fixed number. It depends on both how far BTC has moved and how many minutes are left in the window.
+The "fair price" — what a Yes contract should theoretically be worth — is not a fixed number. It depends on both how far BTC has moved and how far into the window we are.
 
-We built a lookup table from 6,370 historical markets, bucketed into 5 magnitude ranges and 14 minute intervals. Sample values:
+We built a lookup table from 6,370 historical markets, bucketed into 5 magnitude ranges. Unlike the 1-minute table, this one is keyed at **15-second resolution** — T+4:00, T+4:15, T+4:30, etc. — capturing the fact that win rates shift measurably even within a single minute. Sample values from the 0.10–0.20% bucket:
 
-| BTC move from floor | At minute 4 | At minute 7 | At minute 10 | At minute 13 |
-|---|---|---|---|---|
-| Under 0.05% | 57% | 61% | 63% | 69% |
-| 0.05–0.10% | 66% | 73% | 80% | 88% |
-| 0.10–0.20% | 75% | 83% | 91% | 94% |
-| 0.20–0.50% | 86% | 92% | 96% | 94% |
-| Over 0.50% | 95% | 98% | 99% | — |
+| Time offset | Win rate |
+|---|---|
+| T+5:00 | 78.2% |
+| T+5:15 | 81.0% |
+| T+5:30 | 81.6% |
+| T+5:45 | 81.3% |
+| T+10:00 | 91.4% |
 
-We previously used a simpler 1D table that only accounted for the current minute, not how far BTC had moved. The 2D table correctly identifies that a 0.02% move at minute 10 is still only worth a 63% fair price, while the old table would have blindly used 80%. The more accurate fair price leads to more accurate mispricing detection — we only size up when Kalshi is genuinely wrong.
+Magnitude buckets at minute 7:
 
-The 2D table also replaces an old "dead zone" hard filter that blocked all bets when BTC was too close to the floor. With the 2D table we don't need it — tiny-move cells naturally produce fair prices close to Kalshi's price, so the computed mispricing is small and the bet shrinks to nothing automatically.
+| BTC move from floor | Win rate |
+|---|---|
+| Under 0.05% | ~61% |
+| 0.05–0.10% | ~73% |
+| 0.10–0.20% | ~83% |
+| 0.20–0.50% | ~92% |
+| Over 0.50% | ~98% |
+
+The 2D table replaces an old "dead zone" hard filter that blocked all bets when BTC was too close to the floor. With the 2D table we don't need it — tiny-move cells naturally produce fair prices close to Kalshi's price, so the computed mispricing is small and the bet shrinks to nothing automatically.
 
 ---
 
 ## Continuously Updating Position (Delta Hedging)
 
-Rather than placing one bet at minute 5 and waiting, the system re-evaluates every minute from minute 4 through minute 13. Each minute it looks at the current BTC price, recomputes fair value, checks Kalshi's current quote, and decides whether to add to its position.
+Rather than placing one bet at minute 5 and waiting, the system re-evaluates at configurable intervals from T+4:00 through T+13:45. At each interval it looks at the current BTC price, recomputes fair value, checks Kalshi's current quote, and decides whether to add to its position.
 
 We use a strategy called delta hedging, borrowed from options trading, where you continuously adjust a position as new information arrives rather than committing to a fixed bet upfront. The name is a loose analogy — we're not hedging in the traditional risk-reduction sense, we're continuously updating a directional bet as BTC's price evolves.
 
-**Target mode** (the default) maintains a desired total exposure for each side and only bets the gap. If at minute 4 we compute a target of $200 on Yes and place $200, then at minute 5 the target recomputes to $180 (BTC moved a little less), we place nothing — we're already above target. If at minute 6 it rises to $250, we place the $50 gap. This means:
+**Interval frequency** is set by `BETS_PER_MIN` in `.env`:
+- `1` — one check per minute (T+4, T+5, ... T+13), 10 intervals
+- `2` — every 30 seconds (T+4:00, T+4:30, ...), 20 intervals
+- `4` — every 15 seconds (T+4:00, T+4:15, ...), 40 intervals (default)
+
+**Target mode** (the default) maintains a desired total exposure for each side and only bets the gap. If at T+4:00 we compute a target of $200 on Yes and place $200, then at T+4:15 the target recomputes to $180 (BTC moved a little less), we place nothing — we're already above target. If at T+4:30 it rises to $250, we place the $50 gap. This means:
 
 - We never pile on beyond what the signal justifies
 - If BTC drifts back toward the floor, the target shrinks and we stop adding
-- In a window where BTC moves clearly in one direction all the way to close, we might place 1-2 bets; in a choppy window we might place more as the target oscillates
+- In a window where BTC moves clearly in one direction, we might place 1-3 bets total; in a choppy window we place more as the target oscillates
 
-**Additive mode** ignores prior exposure and bets the full computed amount every minute, leading to much higher volume (and variance).
+**Additive mode** ignores prior exposure and bets the full computed amount at every interval, leading to much higher volume (and variance).
 
 ---
 
@@ -116,15 +129,19 @@ We support an optional filter to only trade specific hours, configurable without
 
 ## Backtest Results
 
-Tested on 6,360 markets (90 days, Feb–May 2026, $100 base stake):
+Tested on 6,334 markets with 15-second Kalshi trade data ($10 base stake):
 
 | Strategy | ROI | Avg bets per window |
 |---|---|---|
 | Single bet at minute 5 | ~3% | 1 |
-| Delta hedge, 1D fair price, hard dead zone | +35.7% | 1.3 |
-| **Delta hedge, 2D fair price, no dead zone** | **+39.1%** | 3.3 |
+| Delta hedge, 1-min intervals, magnitude-f | +49.3% | 3.3 |
+| Delta hedge, 1-min intervals, win-rate-f | +58.0% | 3.7 |
+| Delta hedge, 15-sec intervals, magnitude-f | +60.4% | 6.7 |
+| **Delta hedge, 15-sec intervals, win-rate-f** | **+66.3%** | 6.7 |
 
-The improvement from 1D to 2D fair price comes from more accurate edge detection — the system no longer over-bets on weak signals (small moves) or under-bets on strong signals (large moves at the same minute).
+The two improvements compound independently:
+- **Win-rate-f vs magnitude-f** (+8.7pp): sizing based on the full 2D win-rate signal rather than raw magnitude avoids over-betting small uncertain moves and under-betting late high-confidence ones.
+- **15-second intervals vs 1-minute** (+11.1pp): the 15s table captures within-minute variation in win rates, and more frequent checks mean less lag when BTC makes a decisive move near the close.
 
 ---
 
