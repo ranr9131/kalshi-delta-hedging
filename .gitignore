@@ -20,6 +20,15 @@ data/logs/
 # Logs
 *.log
 
+# Local trader state (per-machine, regenerated at runtime)
+live/*.csv
+
+# IDE
+.idea/
+
+# Scratch / handoff notes
+CONTEXT_HANDOFF.md
+
 # OS
 .DS_Store
 Thumbs.db

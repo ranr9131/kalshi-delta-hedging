@@ -85,6 +85,7 @@ WINDOW_MINUTES       = 15
 DH_MINUTES           = list(range(4, 14))   # T+4 through T+13
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
+MAX_FILL_PRICE       = 0.97   # skip bets whose buffered fill price exceeds this
 
 BTC_RETRY_ATTEMPTS   = 3
 BTC_RETRY_DELAY_SECS = 5
@@ -214,6 +215,8 @@ def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str
                     except Exception:
                         pass
                     continue
+                # second attempt also rested and was cancelled — do NOT report success
+                return None, "both attempts rested and were cancelled"
 
             return order_id, None
         except Exception as e:
@@ -320,6 +323,12 @@ def run_dh_loop(
         if ws_bid is not None and ws_ask is not None and ws_age < 10:
             yes_bid = ws_bid
             yes_ask = ws_ask
+            # Synthesize a market dict for place_order (uses yes_bid_dollars / yes_ask_dollars).
+            market = {
+                "ticker":          ticker,
+                "yes_bid_dollars": yes_bid,
+                "yes_ask_dollars": yes_ask,
+            }
         else:
             log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{minute}, falling back to REST.")
             try:
@@ -396,6 +405,15 @@ def run_dh_loop(
 
         if bet_yes >= MIN_BET:
             fill  = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            if fill > MAX_FILL_PRICE:
+                upside_per = max(0.001, 1.0 - fill)
+                ratio      = fill / upside_per
+                log.info(
+                    f"  -> SKIP YES ${bet_yes:.2f}: fill {fill:.3f} > cap {MAX_FILL_PRICE} "
+                    f"| reason: risk {fill*100:.1f}c to win {upside_per*100:.1f}c per contract "
+                    f"(R:R {ratio:.0f}:1 against)"
+                )
+                continue
             count = max(1, round(bet_yes / fill))
             log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
             if PAPER_MODE:
@@ -408,10 +426,11 @@ def run_dh_loop(
                     log.info(f"     YES order placed: {order_id}")
                 else:
                     log.error(f"     YES order FAILED: {err}")
-            yes_bets.append((bet_yes, fill, count, minute))
-            yes_exposure += bet_yes
+            if order_id:   # only count bet toward exposure if it actually placed
+                yes_bets.append((bet_yes, fill, count, minute))
+                yes_exposure += bet_yes
             log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure - bet_yes, 4),
+                "yes_exposure_before": round(yes_exposure - (bet_yes if order_id else 0), 4),
                 "no_exposure_before":  round(no_exposure, 4),
                 "bet_side":            "yes",
                 "stake":               round(bet_yes, 4),
@@ -423,6 +442,15 @@ def run_dh_loop(
 
         if bet_no >= MIN_BET:
             fill  = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            if fill > MAX_FILL_PRICE:
+                upside_per = max(0.001, 1.0 - fill)
+                ratio      = fill / upside_per
+                log.info(
+                    f"  -> SKIP NO  ${bet_no:.2f}: fill {fill:.3f} > cap {MAX_FILL_PRICE} "
+                    f"| reason: risk {fill*100:.1f}c to win {upside_per*100:.1f}c per contract "
+                    f"(R:R {ratio:.0f}:1 against)"
+                )
+                continue
             count = max(1, round(bet_no / fill))
             log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
             if PAPER_MODE:
@@ -435,11 +463,12 @@ def run_dh_loop(
                     log.info(f"     NO order placed: {order_id}")
                 else:
                     log.error(f"     NO order FAILED: {err}")
-            no_bets.append((bet_no, fill, count, minute))
-            no_exposure += bet_no
+            if order_id:   # only count bet toward exposure if it actually placed
+                no_bets.append((bet_no, fill, count, minute))
+                no_exposure += bet_no
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure, 4),
-                "no_exposure_before":  round(no_exposure - bet_no, 4),
+                "no_exposure_before":  round(no_exposure - (bet_no if order_id else 0), 4),
                 "bet_side":            "no",
                 "stake":               round(bet_no, 4),
                 "fill_price":          round(fill, 4),
