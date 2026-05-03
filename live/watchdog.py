@@ -21,8 +21,13 @@ _dir         = os.path.dirname(os.path.abspath(__file__))
 TRADER_PATH  = os.path.join(_dir, "trader.py")
 ENV_PATH     = os.path.join(_dir, ".env")
 BALANCE_LOG  = os.path.join(_dir, "balance_log.csv")
-LOG_PATH     = "/tmp/kalshi_trader.log"
-PYTHON       = os.path.join(_dir, "venv", "bin", "python")
+# Cross-platform log path: writable temp dir on every OS
+LOG_PATH     = os.path.join(_dir, "kalshi_trader.log")
+# Cross-platform venv python: Windows uses Scripts/python.exe, Unix uses bin/python
+if os.name == "nt":
+    PYTHON   = os.path.join(_dir, "venv", "Scripts", "python.exe")
+else:
+    PYTHON   = os.path.join(_dir, "venv", "bin", "python")
 
 STALE_SECS     = 30 * 60   # restart if no balance row written for 30 min
 CHECK_INTERVAL = 60
