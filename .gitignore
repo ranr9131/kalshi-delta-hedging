@@ -15,7 +15,10 @@ venv/
 
 # Data / cache (large files, regeneratable)
 data/cache/
-data/logs/
+# Ignore everything under data/logs/ except the precomputed lookup table
+# the trader depends on at runtime
+data/logs/*
+!data/logs/minute_analysis_2d.csv
 
 # Logs
 *.log
