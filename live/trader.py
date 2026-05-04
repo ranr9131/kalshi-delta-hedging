@@ -35,6 +35,11 @@ BASE_STAKE = float(env.get("BASE_STAKE", "100.0"))
 MODE       = env.get("MODE", "dh-target").lower()   # t+5 | dh-target | dh-additive
 MIN_BET    = float(env.get("MIN_BET", "5.0"))
 
+# Hard cap on total dollars wagered within a single 15-min window. The DH loop
+# truncates each bet to fit; once the cap is reached no further bets are placed.
+# Worst-case window loss ≈ this number. Set to 0 to disable.
+MAX_WINDOW_WAGERED = float(env.get("MAX_WINDOW_WAGERED", "0"))
+
 # ACTIVE_HOURS: comma-separated UTC hours to trade, e.g. "13,14,18,22".
 # Empty or unset = trade all 24 hours.
 _active_hours_raw = env.get("ACTIVE_HOURS", "").strip()
@@ -197,10 +202,17 @@ def get_btc_with_retry() -> float | None:
     return None
 
 
-def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str | None]:
+def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str | None, float]:
     """
     Place an order. If it rests (market moved between fetch and submit),
     cancel it, re-fetch the market, and retry once at the updated price.
+
+    Returns (order_id, error, actual_stake):
+      actual_stake is the dollar amount that ACTUALLY filled. For a clean
+      execution this equals `stake`. For a "rested → cancelled" path where
+      Kalshi partially filled before the cancel landed, this is the partial
+      fill amount (may be less than `stake`). Used to keep exposure tracking
+      consistent with reality so the per-window cap holds.
     """
     current_market = market
     for attempt in range(2):
@@ -213,21 +225,33 @@ def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str
             if status == "resting":
                 log.warning(f"  Order {order_id} is resting (market moved). Cancelling and retrying...")
                 kalshi_trade.cancel_order(PRIVATE_KEY, API_KEY_ID, order_id)
+
+                # Check for partial fills that may have landed on Kalshi before
+                # the cancel. Without this the order looks fully cancelled and
+                # exposure tracking misses contracts that did execute.
+                filled = kalshi_trade.get_order_filled_stake(PRIVATE_KEY, API_KEY_ID, order_id)
+                if filled >= 0.01:
+                    log.warning(
+                        f"  Order {order_id} partially filled ${filled:.2f} before cancel "
+                        f"— counting toward exposure"
+                    )
+                    return order_id, None, filled
+
                 if attempt == 0:
                     try:
                         current_market = kalshi_trade.get_open_market() or current_market
                     except Exception:
                         pass
                     continue
-                # second attempt also rested and was cancelled — do NOT report success
-                return None, "both attempts rested and were cancelled"
+                # second attempt also rested with no fills
+                return None, "both attempts rested and were cancelled", 0.0
 
-            return order_id, None
+            return order_id, None, stake
         except Exception as e:
             log.error(f"Order attempt {attempt+1} failed: {e}")
             if attempt == 0:
                 time.sleep(1)
-    return None, "order rested or failed after retry"
+    return None, "order rested or failed after retry", 0.0
 
 
 def wait_for_close(close_time_str: str) -> None:
@@ -377,6 +401,24 @@ def run_dh_loop(
             bet_yes = target_yes
             bet_no  = target_no
 
+        # Per-window wagered cap: truncate so cumulative wagered (yes + no
+        # exposure) never exceeds MAX_WINDOW_WAGERED. Once at cap, both bets
+        # shrink to 0 and fall below MIN_BET below.
+        if MAX_WINDOW_WAGERED > 0:
+            remaining = max(0.0, MAX_WINDOW_WAGERED - (yes_exposure + no_exposure))
+            if bet_yes + bet_no > remaining:
+                if remaining <= 0:
+                    bet_yes = bet_no = 0.0
+                else:
+                    total_req = bet_yes + bet_no
+                    bet_yes = remaining * (bet_yes / total_req)
+                    bet_no  = remaining * (bet_no  / total_req)
+                log.info(
+                    f"  -> CAP: window wagered ${yes_exposure + no_exposure:.2f}/"
+                    f"${MAX_WINDOW_WAGERED:.2f} → bet truncated to "
+                    f"yes=${bet_yes:.2f} no=${bet_no:.2f}"
+                )
+
         direction_label = "yes" if direction_up else "no"
 
         log.info(
@@ -423,26 +465,28 @@ def run_dh_loop(
                 continue
             count = max(1, round(bet_yes / fill))
             log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+            actual_stake = bet_yes
             if PAPER_MODE:
                 order_id, order_result = "paper", "paper"
                 log.info("     [PAPER] no order submitted")
             else:
-                order_id, err = place_order_with_retry(ticker, "yes", market, bet_yes)
+                order_id, err, actual_stake = place_order_with_retry(ticker, "yes", market, bet_yes)
                 order_result  = "ok" if order_id else f"error: {err}"
                 if order_id:
-                    log.info(f"     YES order placed: {order_id}")
+                    log.info(f"     YES order placed: {order_id}  (filled ${actual_stake:.2f})")
                 else:
                     log.error(f"     YES order FAILED: {err}")
             if order_id:   # only count bet toward exposure if it actually placed
-                yes_bets.append((bet_yes, fill, count, t_min))
-                yes_exposure += bet_yes
+                logged_count = max(1, round(actual_stake / fill))
+                yes_bets.append((actual_stake, fill, logged_count, t_min))
+                yes_exposure += actual_stake
             log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure - (bet_yes if order_id else 0), 4),
+                "yes_exposure_before": round(yes_exposure - (actual_stake if order_id else 0), 4),
                 "no_exposure_before":  round(no_exposure, 4),
                 "bet_side":            "yes",
-                "stake":               round(bet_yes, 4),
+                "stake":               round(actual_stake if order_id else bet_yes, 4),
                 "fill_price":          round(fill, 4),
-                "count":               count,
+                "count":               max(1, round(actual_stake / fill)) if order_id else count,
                 "order_id":            order_id or "none",
                 "order_result":        order_result,
             })
@@ -460,26 +504,28 @@ def run_dh_loop(
                 continue
             count = max(1, round(bet_no / fill))
             log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+            actual_stake = bet_no
             if PAPER_MODE:
                 order_id, order_result = "paper", "paper"
                 log.info("     [PAPER] no order submitted")
             else:
-                order_id, err = place_order_with_retry(ticker, "no", market, bet_no)
+                order_id, err, actual_stake = place_order_with_retry(ticker, "no", market, bet_no)
                 order_result  = "ok" if order_id else f"error: {err}"
                 if order_id:
-                    log.info(f"     NO order placed: {order_id}")
+                    log.info(f"     NO order placed: {order_id}  (filled ${actual_stake:.2f})")
                 else:
                     log.error(f"     NO order FAILED: {err}")
             if order_id:   # only count bet toward exposure if it actually placed
-                no_bets.append((bet_no, fill, count, t_min))
-                no_exposure += bet_no
+                logged_count = max(1, round(actual_stake / fill))
+                no_bets.append((actual_stake, fill, logged_count, t_min))
+                no_exposure += actual_stake
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure, 4),
-                "no_exposure_before":  round(no_exposure - (bet_no if order_id else 0), 4),
+                "no_exposure_before":  round(no_exposure - (actual_stake if order_id else 0), 4),
                 "bet_side":            "no",
-                "stake":               round(bet_no, 4),
+                "stake":               round(actual_stake if order_id else bet_no, 4),
                 "fill_price":          round(fill, 4),
-                "count":               count,
+                "count":               max(1, round(actual_stake / fill)) if order_id else count,
                 "order_id":            order_id or "none",
                 "order_result":        order_result,
             })
@@ -703,6 +749,8 @@ def run_window():
 def main():
     mode_label = "PAPER" if PAPER_MODE else "LIVE"
     log.info(f"BTC-Kalshi Trader starting | mode={mode_label} | strategy={MODE} | base_stake=${BASE_STAKE:.2f}")
+    cap_str = f"${MAX_WINDOW_WAGERED:.2f}" if MAX_WINDOW_WAGERED > 0 else "disabled"
+    log.info(f"Per-window wagered cap: {cap_str}")
 
     if not os.path.exists(_2D_CSV_PATH):
         log.error(f"2D fair price table not found: {_2D_CSV_PATH}. Run analyze_minutes_2d.py first.")
