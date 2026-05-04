@@ -40,6 +40,18 @@ if BETS_PER_MIN not in (1, 2, 4):
     print(f"ERROR: BETS_PER_MIN={BETS_PER_MIN} is invalid. Must be 1, 2, or 4.")
     sys.exit(1)
 
+# USE_MED_DIRECTION: if true, use the 3-second rolling median of Coinbase ticks
+# for the direction decision instead of the latest single tick. Bet sizing still
+# uses the live snapshot price. Filters out brief single-tick spikes near the floor.
+USE_MED_DIRECTION = env.get("USE_MED_DIRECTION", "false").lower() == "true"
+
+# VEL_SOFT_K: soft velocity multiplier steepness. Empty/unset = disabled.
+# f_vel = 2.0 / (1 + exp(-k * vel_aligned_pct)) where vel_aligned > 0 means
+# BTC is moving in the direction of the bet. Neutral at vel=0 (f_vel=1.0).
+# Recommended: 100. Simulation: +9.4pp ROI vs no-vel baseline.
+_vel_soft_k_raw = env.get("VEL_SOFT_K", "").strip()
+VEL_SOFT_K: float | None = float(_vel_soft_k_raw) if _vel_soft_k_raw else None
+
 # ACTIVE_HOURS: comma-separated UTC hours to trade, e.g. "13,14,18,22".
 # Empty or unset = trade all 24 hours.
 _active_hours_raw = env.get("ACTIVE_HOURS", "").strip()
@@ -58,6 +70,7 @@ PRIVATE_KEY = kalshi_auth.load_private_key(raw_pem) if raw_pem else None
 _dir = os.path.dirname(os.path.abspath(__file__))
 TRADE_LOG_PATH  = os.path.join(_dir, "trade_log.csv")
 WINDOW_LOG_PATH = os.path.join(_dir, "window_log.csv")
+TICK_LOG_PATH   = os.path.join(_dir, "tick_analysis.csv")
 
 # One row per individual bet (all modes)
 TRADE_LOG_FIELDS = [
@@ -86,10 +99,20 @@ WINDOW_LOG_FIELDS = [
     "cumulative_pnl",
 ]
 
+# One row per DH interval (every check, not just bets)
+TICK_LOG_FIELDS = [
+    "ts", "window_ts", "offset",
+    "cutoff", "snap", "snap_pct",
+    "n5s", "med5s", "min5s", "max5s",
+    "snap_vs_med",
+    "direction", "dir_if_med", "direction_flipped",
+    "kalshi_mid",
+]
+
 WINDOW_MINUTES       = 15
 DH_INTERVAL_SECS     = 60 // BETS_PER_MIN                       # 60, 30, or 15
 DH_START_SECS        = 4 * 60                                    # T+4:00
-DH_END_SECS          = 14 * 60 - DH_INTERVAL_SECS               # T+13:00 / T+13:30 / T+13:45
+DH_END_SECS          = 15 * 60 - DH_INTERVAL_SECS               # T+14:00 / T+14:30 / T+14:45
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = DH_START_SECS if MODE.startswith("dh") else 5 * 60
 
@@ -98,17 +121,17 @@ BTC_RETRY_DELAY_SECS = 5
 MAX_PRICE_AGE_SECS   = 10
 
 # ── 2D fair price table ───────────────────────────────────────────────────────
-# Loaded from minute_analysis_2d.csv at startup.
-# Key: (minute, bucket_index)  Value: (win_rate, avg_fill, n)
+# Loaded from minute_analysis_2d_15s_kxbtc15m.csv at startup.
+# Key: (offset_secs, bucket_index)  Value: (win_rate, avg_fill, n)
 _FAIR_PRICE_2D: dict[tuple[int, int], tuple[float, float, int]] = {}
 
 _2D_CSV_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "logs", "minute_analysis_2d_15s_kxbtc15m.csv"
 )
 _2D_BUCKETS = [
-    (0.000, 0.05), (0.050, 0.10), (0.100, 0.20), (0.200, 0.50), (0.500, float("inf")),
+    (0.000, 0.01), (0.010, 0.05), (0.050, 0.10), (0.100, 0.20), (0.200, 0.50), (0.500, float("inf")),
 ]
-_2D_BUCKET_LABELS = ["0.00-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
+_2D_BUCKET_LABELS = ["0.00-0.01%", "0.01-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
 _2D_MIN_N = 30   # fall back to strategy.FAIR_PRICE for cells with fewer samples
 
 # 1D fallback (used only when a cell has n < _2D_MIN_N)
@@ -116,7 +139,7 @@ _FAIR_PRICE_BY_MINUTE_FALLBACK = {
     1: 0.582, 2: 0.617, 3: 0.636, 4: 0.670,
     5: 0.698, 6: 0.728, 7: 0.751, 8: 0.759,
     9: 0.783, 10: 0.798, 11: 0.806, 12: 0.815,
-    13: 0.826,
+    13: 0.826, 14: 0.840,
 }
 
 
@@ -160,7 +183,7 @@ def get_fair_price_2d(offset_secs: int, abs_pct_move: float) -> float:
 
 # Option-3 f-function: sigmoid of 2D win rate instead of raw magnitude.
 # Center=0.65 means f=1.5 at 65% win rate; simulation showed +9.1pp ROI vs magnitude-based f.
-_WR_CENTER       = 0.65
+_WR_CENTER       = 0.725
 _WR_K            = 20.0
 _SIGMOID_MAX_MULT = 3.0
 
@@ -257,7 +280,7 @@ def wait_for_close(close_time_str: str) -> None:
             log.info(f"Waiting {remaining:.0f}s for market to close at {close_dt.strftime('%H:%M:%S')} UTC...")
             deadline = time.time() + remaining + 3
             while time.time() < deadline and not _shutdown:
-                time.sleep(min(5.0, deadline - time.time()))
+                time.sleep(max(0.0, min(5.0, deadline - time.time())))
     except Exception as e:
         log.warning(f"Could not parse close_time '{close_time_str}': {e}. Sleeping 600s.")
         time.sleep(600)
@@ -304,6 +327,10 @@ def log_window(row: dict):
     _append_csv(WINDOW_LOG_PATH, WINDOW_LOG_FIELDS, row)
 
 
+def log_tick(row: dict):
+    _append_csv(TICK_LOG_PATH, TICK_LOG_FIELDS, row)
+
+
 # ── DH loop ───────────────────────────────────────────────────────────────────
 
 def run_dh_loop(
@@ -313,15 +340,15 @@ def run_dh_loop(
     close_time: str,
 ) -> tuple[list, list, float, float]:
     """
-    Run delta hedging from T+5 to T+10, placing bets on yes and/or no each minute.
+    Run delta hedging from T+4:00 to T+14:45 at DH_INTERVAL_SECS intervals.
     Returns (yes_bets, no_bets, yes_exposure, no_exposure)
-    Each bet entry: (stake, fill_price, count, minute).
+    Each bet entry: (stake, fill_price, count, offset_secs).
     """
     yes_exposure = 0.0
     no_exposure  = 0.0
-    net_exposure = 0.0   # positive = net YES, negative = net NO (mirrors Kalshi netting)
     yes_bets: list[tuple[float, float, float, int]] = []
     no_bets:  list[tuple[float, float, float, int]] = []
+    btc_prev: float | None = None  # BTC price from previous interval (for velocity)
 
     for offset_secs in range(DH_START_SECS, DH_END_SECS + 1, DH_INTERVAL_SECS):
         target_dt = window_ts + timedelta(seconds=offset_secs)
@@ -329,7 +356,7 @@ def run_dh_loop(
         if remaining > 0:
             deadline = time.time() + remaining
             while time.time() < deadline and not _shutdown:
-                time.sleep(min(1.0, deadline - time.time()))
+                time.sleep(max(0.0, min(1.0, deadline - time.time())))
 
         if _shutdown:
             break
@@ -339,6 +366,7 @@ def run_dh_loop(
         btc_now = get_btc_with_retry()
         if btc_now is None:
             log.warning(f"BTC unavailable at {t_label}, skipping interval.")
+            btc_prev = None
             continue
         btc_age = btc_feed.get_price_age()
 
@@ -366,41 +394,79 @@ def run_dh_loop(
         spread     = round(yes_ask - yes_bid, 4)
         kalshi_mid = (yes_bid + yes_ask) / 2
 
+        # ── Tick analysis logging ─────────────────────────────────────────────
+        _ts        = btc_feed.get_tick_stats(3.0)
+        _snap_pct  = round((btc_now - btc_t0) / btc_t0 * 100, 4)
+        _direction = "yes" if btc_now > btc_t0 else "no"
+        _dir_med   = ("yes" if _ts["median"] > btc_t0 else "no") if _ts["median"] is not None else "unknown"
+        log_tick({
+            "ts":               datetime.now(timezone.utc).isoformat(),
+            "window_ts":        window_ts.isoformat(),
+            "offset":           t_label,
+            "cutoff":           round(btc_t0, 2),
+            "snap":             round(btc_now, 2),
+            "snap_pct":         _snap_pct,
+            "n5s":              _ts["count"],
+            "med5s":            _ts["median"],
+            "min5s":            _ts["min"],
+            "max5s":            _ts["max"],
+            "snap_vs_med":      round(btc_now - _ts["median"], 2) if _ts["median"] is not None else "",
+            "direction":        _direction,
+            "dir_if_med":       _dir_med,
+            "direction_flipped": int(_direction != _dir_med),
+            "kalshi_mid":       round(kalshi_mid, 4),
+        })
+        # ─────────────────────────────────────────────────────────────────────
+
         abs_pct_move = abs(btc_now - btc_t0) / btc_t0 * 100
-        direction_up = btc_now > btc_t0
+        if USE_MED_DIRECTION and _ts["median"] is not None:
+            direction_up = _ts["median"] > btc_t0
+        else:
+            direction_up = btc_now > btc_t0
+
+        # Soft velocity multiplier: scale bets by how aligned recent BTC momentum is.
+        # Uses previous interval's BTC price as "15s ago" reference.
+        if VEL_SOFT_K is not None and btc_prev is not None:
+            import math
+            raw_vel     = (btc_now - btc_prev) / btc_prev * 100
+            vel_aligned = raw_vel if direction_up else -raw_vel
+            f_vel       = 2.0 / (1.0 + math.exp(-VEL_SOFT_K * vel_aligned))
+        else:
+            f_vel = 1.0
+
+        btc_prev = btc_now
 
         fair  = get_fair_price_2d(offset_secs, abs_pct_move)
         f_btc = sigmoid_winrate(fair)
 
         buf = kalshi_trade.FILL_BUFFER_CENTS / 100
         if direction_up:
-            mispricing = fair - (yes_ask + buf)   # true edge after buffer cost
+            mispricing = fair - (yes_ask + buf)
             g_misprice = strategy.sigmoid_mispricing(mispricing)
-            target_yes = BASE_STAKE * f_btc * g_misprice
+            target_yes = BASE_STAKE * f_btc * f_vel * g_misprice
             target_no  = 0.0
         else:
-            mispricing = fair - ((1.0 - yes_bid) + buf)  # P(direction correct) - no_fill cost
+            mispricing = fair - ((1.0 - yes_bid) + buf)
             g_misprice = strategy.sigmoid_mispricing(mispricing)
-            target_no  = BASE_STAKE * f_btc * g_misprice
+            target_no  = BASE_STAKE * f_btc * f_vel * g_misprice
             target_yes = 0.0
 
         if MODE == "dh-target":
-            # Use net exposure so Kalshi's position netting is accounted for:
-            # net_exposure > 0 means we hold YES; < 0 means we hold NO.
-            bet_yes = max(0.0, target_yes - max(net_exposure, 0.0))
-            bet_no  = max(0.0, target_no  - max(-net_exposure, 0.0))
+            bet_yes = max(0.0, target_yes - yes_exposure)
+            bet_no  = max(0.0, target_no  - no_exposure)
         else:  # dh-additive
             bet_yes = target_yes
             bet_no  = target_no
 
         direction_label = "yes" if direction_up else "no"
 
+        vel_str = f" fv={f_vel:.2f}" if VEL_SOFT_K is not None else ""
         log.info(
             f"DH {t_label}: {direction_label.upper()} | "
             f"cutoff=${btc_t0:,.2f} now=${btc_now:,.2f} ({'+' if direction_up else '-'}{abs_pct_move:.4f}%) | "
             f"bid={yes_bid:.3f}/ask={yes_ask:.3f} mid={kalshi_mid:.3f} | "
             f"fair={fair:.3f} mis={mispricing:+.3f} | "
-            f"f={f_btc:.3f} g={g_misprice:.3f} | "
+            f"f={f_btc:.3f}{vel_str} g={g_misprice:.3f} | "
             f"gap_yes=${bet_yes:.2f} gap_no=${bet_no:.2f}"
         )
 
@@ -447,9 +513,8 @@ def run_dh_loop(
                         log.error(f"     YES order FAILED: {err}")
                         placed = False
                 if placed:
-                    yes_bets.append((bet_yes, fill, count, minute))
+                    yes_bets.append((bet_yes, fill, count, offset_secs))
                     yes_exposure += bet_yes
-                    net_exposure += bet_yes
                     log_bet({**base_row,
                     "yes_exposure_before": round(yes_exposure - bet_yes, 4),
                     "no_exposure_before":  round(no_exposure, 4),
@@ -467,7 +532,7 @@ def run_dh_loop(
                 else:
                     log.info(f"  -> SKIP YES — BTC move too small for meaningful bet (f={f_btc:.3f} g={g_misprice:.3f}, target=${target_yes:.2f})")
             else:
-                log.info(f"  -> SKIP YES — gap ${bet_yes:.2f} < MIN_BET (already hold ${net_exposure:.2f} of ${target_yes:.2f} target)")
+                log.info(f"  -> SKIP YES — gap ${bet_yes:.2f} < MIN_BET (already hold ${yes_exposure:.2f} of ${target_yes:.2f} target)")
 
         if bet_no >= MIN_BET:
             fill = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
@@ -490,9 +555,8 @@ def run_dh_loop(
                         log.error(f"     NO order FAILED: {err}")
                         placed = False
                 if placed:
-                    no_bets.append((bet_no, fill, count, minute))
+                    no_bets.append((bet_no, fill, count, offset_secs))
                     no_exposure += bet_no
-                    net_exposure -= bet_no
                     log_bet({**base_row,
                         "yes_exposure_before": round(yes_exposure, 4),
                         "no_exposure_before":  round(no_exposure - bet_no, 4),
@@ -510,7 +574,7 @@ def run_dh_loop(
                 else:
                     log.info(f"  -> SKIP NO  — BTC move too small for meaningful bet (f={f_btc:.3f} g={g_misprice:.3f}, target=${target_no:.2f})")
             else:
-                log.info(f"  -> SKIP NO  — gap ${bet_no:.2f} < MIN_BET (already hold ${-net_exposure:.2f} of ${target_no:.2f} target)")
+                log.info(f"  -> SKIP NO  — gap ${bet_no:.2f} < MIN_BET (already hold ${no_exposure:.2f} of ${target_no:.2f} target)")
 
     return yes_bets, no_bets, yes_exposure, no_exposure
 
@@ -530,7 +594,7 @@ def run_window():
 
     deadline = time.time() + sleep_secs
     while time.time() < deadline and not _shutdown:
-        time.sleep(min(1.0, deadline - time.time()))
+        time.sleep(max(0.0, min(1.0, deadline - time.time())))
     if _shutdown:
         return
 
@@ -546,6 +610,9 @@ def run_window():
 
     ticker     = market["ticker"]
     close_time = market.get("close_time", "")
+    if "floor_strike" not in market or market["floor_strike"] is None:
+        log.error(f"Market {ticker} missing floor_strike (keys: {list(market.keys())}). Skipping window.")
+        return
     btc_t0     = float(market["floor_strike"])
 
     # Subscribe WebSocket to this window's ticker for real-time bid/ask.
@@ -780,7 +847,7 @@ def main():
             log.info(f"Skipping {window_ts.strftime('%H:%M')} UTC (not in ACTIVE_HOURS), next window in {wait:.0f}s")
             deadline = time.time() + wait
             while time.time() < deadline and not _shutdown:
-                time.sleep(min(1.0, deadline - time.time()))
+                time.sleep(max(0.0, min(1.0, deadline - time.time())))
             continue
 
         if elapsed < DECISION_OFFSET_SECS:
@@ -794,7 +861,7 @@ def main():
 
         deadline = time.time() + wait
         while time.time() < deadline and not _shutdown:
-            time.sleep(min(1.0, deadline - time.time()))
+            time.sleep(max(0.0, min(1.0, deadline - time.time())))
 
         if _shutdown:
             break

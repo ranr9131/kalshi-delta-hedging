@@ -31,9 +31,9 @@ DH_MINUTES       = list(range(4, 14))
 _2D_MIN_N        = 30
 
 _2D_BUCKETS = [
-    (0.000, 0.05), (0.050, 0.10), (0.100, 0.20), (0.200, 0.50), (0.500, float("inf")),
+    (0.000, 0.01), (0.010, 0.05), (0.050, 0.10), (0.100, 0.20), (0.200, 0.50), (0.500, float("inf")),
 ]
-_2D_BUCKET_LABELS = ["0.00-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
+_2D_BUCKET_LABELS = ["0.00-0.01%", "0.01-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
 
 COINBASE_BASE = "https://api.exchange.coinbase.com/products"
 KALSHI_BASE   = "https://api.elections.kalshi.com/trade-api/v2"

@@ -4,15 +4,19 @@ No authentication required. Runs in a daemon thread.
 """
 
 import json
+import statistics
 import threading
 import time
+from collections import deque
+
 import websocket
 
 WS_URL = "wss://ws-feed.exchange.coinbase.com"
 
-_lock  = threading.Lock()
-_price: float | None = None
-_last_update: float = 0.0   # unix timestamp of last received price
+_lock         = threading.Lock()
+_price:       float | None = None
+_last_update: float        = 0.0          # unix timestamp of last received price
+_tick_buffer: deque        = deque(maxlen=600)  # ~10 min of ticks at ~1/sec
 
 
 def get_price() -> float | None:
@@ -25,6 +29,21 @@ def get_price_age() -> float:
     """Seconds since last price update. Useful for staleness checks."""
     with _lock:
         return time.time() - _last_update if _last_update else float("inf")
+
+
+def get_tick_stats(seconds: float = 5.0) -> dict:
+    """Stats on ticks received in the last `seconds` seconds."""
+    cutoff_ts = time.time() - seconds
+    with _lock:
+        recent = [p for ts, p in _tick_buffer if ts >= cutoff_ts]
+    if not recent:
+        return {"count": 0, "median": None, "min": None, "max": None}
+    return {
+        "count":  len(recent),
+        "median": round(statistics.median(recent), 2),
+        "min":    round(min(recent), 2),
+        "max":    round(max(recent), 2),
+    }
 
 
 def _on_open(ws):
@@ -42,6 +61,7 @@ def _on_message(ws, message):
             with _lock:
                 _price = float(msg["price"])
                 _last_update = time.time()
+                _tick_buffer.append((_last_update, _price))
     except Exception:
         pass
 

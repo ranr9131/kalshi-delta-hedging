@@ -36,8 +36,8 @@ SYMBOL  = "BTC-USD"
 
 SNAP_INTERVAL   = 15          # seconds between 15s snapshots
 DH_START_SECS   = 4 * 60      # T+4:00
-DH_END_SECS     = 13 * 60     # T+13:00 (last full minute)
-DH_END_15S_SECS = 13 * 60 + 45  # T+13:45 (last 15s mark)
+DH_END_SECS     = 14 * 60     # T+14:00 (last full minute before close)
+DH_END_15S_SECS = 14 * 60 + 45  # T+14:45 (last 15s mark before T+15:00 close)
 
 WR_FALLBACK   = 0.698
 WR_CENTER     = 0.65
@@ -145,9 +145,8 @@ def yes_pnl(stake, price, won):
     return stake * (1 - price) / price * (1 - FEE_RATE) if won else -stake
 
 
-def no_pnl(stake, price, won):
-    np_ = 1 - price
-    return stake * (1 - np_) / np_ * (1 - FEE_RATE) if not won else -stake
+def no_pnl(stake, fill_no, won):
+    return stake * (1 - fill_no) / fill_no * (1 - FEE_RATE) if not won else -stake
 
 
 def load_15s_snap(ticker):
@@ -172,10 +171,23 @@ def get_kalshi_at(snap, ts):
 
 # ── core simulation ───────────────────────────────────────────────────────────
 
-def simulate_one(markets, prices_1min, table_1min, table_15s, f_fn, use_15s):
+FILL_SIM_BUFFER = 0.025  # half typical spread (0.005) + live fill buffer (0.02)
+
+
+def simulate_one(markets, prices_1min, table_1min, table_15s, f_fn, use_15s,
+                 skip_neg_mis=False, additive=False, fill_buf=FILL_SIM_BUFFER,
+                 vel_filter=False, min_pct=0.0, vel_soft_k=None, confirm_intervals=0):
     """
-    Simulate DH-target. use_15s=True checks every 15s using the 15s table;
+    Simulate DH. use_15s=True checks every 15s using the 15s table;
     False checks every 60s using the 1-min table.
+    skip_neg_mis=True zeroes out the target whenever mispricing < 0.
+    additive=True bets the full target each interval (not just the gap vs current exposure).
+    fill_buf: cents added to k_yes to approximate ask+buffer vs last-trade price.
+    vel_filter=True hard-skips bets when 15s BTC velocity disagrees with direction.
+    min_pct: minimum abs % BTC move from T+0 required to place any bet.
+    vel_soft_k: if set, applies soft velocity multiplier f_vel = 2.0/(1+exp(-k*vel_aligned))
+                where vel_aligned is % velocity in the direction of the bet.
+                Neutral at vel=0 (f_vel=1.0), boosts agreeing vel, shrinks opposing vel.
     """
     results = []
 
@@ -202,6 +214,7 @@ def simulate_one(markets, prices_1min, table_1min, table_15s, f_fn, use_15s):
 
         yes_exp, no_exp = 0.0, 0.0
         yes_bets, no_bets = [], []
+        opp_streak = 0
 
         ts = t_start
         while ts <= t_end:
@@ -215,31 +228,83 @@ def simulate_one(markets, prices_1min, table_1min, table_15s, f_fn, use_15s):
 
             direction_up = coin_t > coin_t0
             pct  = abs(coin_t - coin_t0) / coin_t0 * 100
+
+            if min_pct > 0.0 and pct < min_pct:
+                ts += step
+                continue
+
+            if vel_filter:
+                btc_15s_ago = interp_btc(prices_1min, ts - 15)
+                if btc_15s_ago is not None:
+                    vel_agrees = (coin_t > btc_15s_ago) == direction_up
+                else:
+                    vel_agrees = True
+                if not vel_agrees:
+                    ts += step
+                    continue
+
             if use_15s:
                 fair = get_fair_15s(table_15s, offset, pct)
             else:
                 fair = get_fair(table_1min, offset // 60, pct)
             f    = f_fn(pct, fair)
 
+            # Soft velocity multiplier: f_vel = 2.0/(1+exp(-k*vel_aligned))
+            # vel_aligned > 0 means BTC is moving in the direction of the bet
+            if vel_soft_k is not None:
+                btc_15s_ago = interp_btc(prices_1min, ts - 15)
+                if btc_15s_ago is not None:
+                    raw_vel     = (coin_t - btc_15s_ago) / btc_15s_ago * 100
+                    vel_aligned = raw_vel if direction_up else -raw_vel
+                else:
+                    vel_aligned = 0.0
+                f_vel = 2.0 / (1.0 + math.exp(-vel_soft_k * vel_aligned))
+            else:
+                f_vel = 1.0
+
+            fill_yes = min(k_yes + fill_buf, 0.99)
+            fill_no  = min((1.0 - k_yes) + fill_buf, 0.99)
+
             if direction_up:
-                mis      = fair - k_yes
+                mis      = fair - fill_yes
                 g        = sig_mis(mis)
-                tgt_yes  = STAKE * f * g
+                tgt_yes  = 0.0 if (skip_neg_mis and mis < 0) else STAKE * f * f_vel * g
                 tgt_no   = 0.0
             else:
-                mis      = fair - (1.0 - k_yes)
+                mis      = fair - fill_no
                 g        = sig_mis(mis)
                 tgt_yes  = 0.0
-                tgt_no   = STAKE * f * g
+                tgt_no   = 0.0 if (skip_neg_mis and mis < 0) else STAKE * f * f_vel * g
 
-            gap_yes = max(0.0, tgt_yes - yes_exp)
-            gap_no  = max(0.0, tgt_no  - no_exp)
+            if additive:
+                gap_yes = tgt_yes
+                gap_no  = tgt_no
+            else:
+                gap_yes = max(0.0, tgt_yes - yes_exp)
+                gap_no  = max(0.0, tgt_no  - no_exp)
+
+            # Consecutive confirmation gate
+            if confirm_intervals > 0:
+                has_exp = (yes_exp + no_exp) > 0
+                dom_up = None
+                if has_exp:
+                    if yes_exp > no_exp:
+                        dom_up = True
+                    elif no_exp > yes_exp:
+                        dom_up = False
+                if dom_up is not None and direction_up != dom_up:
+                    opp_streak += 1
+                else:
+                    opp_streak = 0
+                if dom_up is not None and direction_up != dom_up and opp_streak < confirm_intervals:
+                    gap_yes = 0.0
+                    gap_no  = 0.0
 
             if gap_yes >= MIN_BET:
-                yes_bets.append((gap_yes, k_yes))
+                yes_bets.append((gap_yes, fill_yes))
                 yes_exp += gap_yes
             if gap_no >= MIN_BET:
-                no_bets.append((gap_no, k_yes))
+                no_bets.append((gap_no, fill_no))
                 no_exp += gap_no
 
             ts += step
@@ -316,7 +381,7 @@ def main():
     print()
 
     # Save 15s table to CSV for the live trader
-    _2D_BUCKET_LABELS = ["0.00-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
+    _2D_BUCKET_LABELS = ["0.00-0.01%", "0.01-0.05%", "0.05-0.10%", "0.10-0.20%", "0.20-0.50%", "0.50%+"]
     out_path = os.path.join(LOGS_DIR, f"minute_analysis_2d_15s_{SERIES.lower()}.csv")
     with open(out_path, "w", newline="") as f:
         w = csv.writer(f)
@@ -328,17 +393,23 @@ def main():
                             round(cell["sum_fill"] / cell["n"], 6)])
     print(f"15s table saved: {out_path}\n")
 
+    # (label, f_fn, use_15s, skip_neg_mis, additive, vel_filter)
     variants = [
-        ("A) 1-min  + mag-f  (baseline)", f_mag,  False),
-        ("B) 15-sec + mag-f            ", f_mag,  True),
-        ("C) 1-min  + wr-f   (opt-3)   ", f_wr,   False),
-        ("D) 15-sec + wr-f             ", f_wr,   True),
+        ("A) 1-min  + mag-f  (baseline)",         f_mag, False, False, False, False),
+        ("B) 15-sec + mag-f            ",          f_mag, True,  False, False, False),
+        ("C) 1-min  + wr-f   (opt-3)   ",          f_wr,  False, False, False, False),
+        ("D) 15-sec + wr-f             ",          f_wr,  True,  False, False, False),
+        ("E) 15-sec + wr-f  + no-neg-mis",         f_wr,  True,  True,  False, False),
+        ("F) 15-sec + wr-f  + additive ",          f_wr,  True,  False, True,  False),
+        ("G) 15-sec + wr-f  + add+no-neg-mis",     f_wr,  True,  True,  True,  False),
+        ("H) 15-sec + wr-f  + vel-filter",         f_wr,  True,  False, False, True),
+        ("I) 15-sec + wr-f  + no-neg-mis + vel",   f_wr,  True,  True,  False, True),
     ]
 
     rows = []
-    for label, f_fn, use_15s in variants:
+    for label, f_fn, use_15s, skip_neg_mis, additive, vel_filter in variants:
         print(f"  Simulating {label} ...", end="\r")
-        res = simulate_one(markets_15s, prices_1min, table_1min, table_15s, f_fn, use_15s)
+        res = simulate_one(markets_15s, prices_1min, table_1min, table_15s, f_fn, use_15s, skip_neg_mis, additive, vel_filter=vel_filter)
         row = summarise(label, res)
         rows.append(row)
         print(f"  {label}  ROI {row['roi']:+.2f}%  win {row['win_rate']:.1%}  bets/w {row['avg_bets']:.1f}  P&L ${row['pnl']:+,.0f}")
