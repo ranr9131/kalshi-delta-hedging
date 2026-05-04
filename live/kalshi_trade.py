@@ -107,6 +107,38 @@ def get_order_status(private_key, api_key_id: str, order_id: str) -> dict:
     return resp.json().get("order", {})
 
 
+def get_order_filled_stake(private_key, api_key_id: str, order_id: str) -> float:
+    """
+    Return total dollars actually filled for `order_id`. Used to recover
+    partial fills that landed on Kalshi between place and cancel.
+    Returns 0.0 on any error (caller should not block on this).
+    """
+    path = "/trade-api/v2/portfolio/fills"
+    headers = make_auth_headers(private_key, api_key_id, "GET", path)
+    try:
+        resp = requests.get(
+            BASE_URL + path,
+            params={"order_id": order_id, "limit": 100},
+            headers=headers, timeout=10,
+        )
+        resp.raise_for_status()
+        fills = resp.json().get("fills", [])
+        total = 0.0
+        for f in fills:
+            # Defensive: in case the order_id query param is ignored, filter locally.
+            fill_oid = f.get("order_id")
+            if fill_oid and fill_oid != order_id:
+                continue
+            count       = float(f.get("count", 0))
+            price_cents = float(f.get("yes_price", 0))
+            side        = f.get("side", "yes")
+            per_contract = price_cents / 100.0 if side == "yes" else (100.0 - price_cents) / 100.0
+            total += count * per_contract
+        return total
+    except Exception:
+        return 0.0
+
+
 def get_market_result(ticker: str) -> str | None:
     """
     Return 'yes' or 'no' if market is finalized, else None. No auth required.
