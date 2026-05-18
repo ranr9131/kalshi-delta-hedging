@@ -40,6 +40,15 @@ MIN_BET    = float(env.get("MIN_BET", "5.0"))
 # Worst-case window loss ≈ this number. Set to 0 to disable.
 MAX_WINDOW_WAGERED = float(env.get("MAX_WINDOW_WAGERED", "0"))
 
+# Reversal-hedge overlay. If RH_MINUTE is set (e.g. 10), then at each minute
+# >= RH_MINUTE during the DH loop, if BTC direction is opposite the side we
+# hold meaningful exposure on (>= RH_TRIGGER dollars), buy enough of the
+# now-correct side to neutralize the contracts owned on the losing side.
+# Unset (or 0) = disabled / baseline behavior.
+_rh_raw  = env.get("RH_MINUTE", "").strip()
+RH_MINUTE: float | None = float(_rh_raw) if _rh_raw and float(_rh_raw) > 0 else None
+RH_TRIGGER = float(env.get("RH_TRIGGER", "10.0"))
+
 # ACTIVE_HOURS: comma-separated UTC hours to trade, e.g. "13,14,18,22".
 # Empty or unset = trade all 24 hours.
 _active_hours_raw = env.get("ACTIVE_HOURS", "").strip()
@@ -327,6 +336,10 @@ def run_dh_loop(
     no_exposure  = 0.0
     yes_bets: list[tuple[float, float, float, float]] = []
     no_bets:  list[tuple[float, float, float, float]] = []
+    # Track contracts owned per side (for RH hedge sizing).
+    yes_contracts = 0.0
+    no_contracts  = 0.0
+    n_hedges      = 0
 
     for offset_secs in DH_OFFSETS_SECS:
         t_min      = offset_secs / 60.0           # fractional minute, for logging / dh_minute column
@@ -480,6 +493,7 @@ def run_dh_loop(
                 logged_count = max(1, round(actual_stake / fill))
                 yes_bets.append((actual_stake, fill, logged_count, t_min))
                 yes_exposure += actual_stake
+                yes_contracts += actual_stake / fill
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure - (actual_stake if order_id else 0), 4),
                 "no_exposure_before":  round(no_exposure, 4),
@@ -519,6 +533,7 @@ def run_dh_loop(
                 logged_count = max(1, round(actual_stake / fill))
                 no_bets.append((actual_stake, fill, logged_count, t_min))
                 no_exposure += actual_stake
+                no_contracts += actual_stake / fill
             log_bet({**base_row,
                 "yes_exposure_before": round(yes_exposure, 4),
                 "no_exposure_before":  round(no_exposure - (actual_stake if order_id else 0), 4),
@@ -529,6 +544,89 @@ def run_dh_loop(
                 "order_id":            order_id or "none",
                 "order_result":        order_result,
             })
+
+        # ── Reversal-Hedge overlay ──────────────────────────────────────────
+        # At every minute >= RH_MINUTE, if BTC direction is opposite the side
+        # we hold meaningful exposure on, buy enough of the now-correct side
+        # to net out the contracts owned on the losing side.
+        if RH_MINUTE is None or t_min < RH_MINUTE:
+            continue
+
+        hedge_side = None
+        if direction_up and no_exposure >= RH_TRIGGER and no_contracts > 0:
+            hedge_side       = "yes"
+            hedge_fill       = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            hedge_stake_req  = no_contracts * hedge_fill
+            cover_contracts  = no_contracts
+        elif (not direction_up) and yes_exposure >= RH_TRIGGER and yes_contracts > 0:
+            hedge_side       = "no"
+            hedge_fill       = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            hedge_stake_req  = yes_contracts * hedge_fill
+            cover_contracts  = yes_contracts
+        else:
+            continue
+
+        # Cap to MAX_WINDOW_WAGERED if configured
+        if MAX_WINDOW_WAGERED > 0:
+            remaining = max(0.0, MAX_WINDOW_WAGERED - (yes_exposure + no_exposure))
+            if hedge_stake_req > remaining:
+                log.info(
+                    f"  -> RH-{hedge_side.upper()} truncated by window cap: "
+                    f"${hedge_stake_req:.2f} → ${remaining:.2f}"
+                )
+                hedge_stake_req = remaining
+
+        if hedge_stake_req < MIN_BET:
+            continue
+        if hedge_fill > MAX_FILL_PRICE:
+            log.info(
+                f"  -> SKIP RH-{hedge_side.upper()} ${hedge_stake_req:.2f}: "
+                f"fill {hedge_fill:.3f} > cap {MAX_FILL_PRICE}"
+            )
+            continue
+
+        hedge_count = max(1, round(hedge_stake_req / hedge_fill))
+        log.info(
+            f"  -> RH-HEDGE {hedge_side.upper()} ${hedge_stake_req:.2f} @ {hedge_fill:.3f} "
+            f"({hedge_count} contracts) | covers {cover_contracts:.1f} losing-side contracts"
+        )
+
+        actual_stake = hedge_stake_req
+        if PAPER_MODE:
+            order_id, order_result = "paper", "paper"
+            log.info("     [PAPER] no hedge order submitted")
+        else:
+            order_id, err, actual_stake = place_order_with_retry(
+                ticker, hedge_side, market, hedge_stake_req
+            )
+            order_result = "ok" if order_id else f"error: {err}"
+            if order_id:
+                log.info(f"     RH-{hedge_side.upper()} order placed: {order_id}  (filled ${actual_stake:.2f})")
+            else:
+                log.error(f"     RH-{hedge_side.upper()} order FAILED: {err}")
+
+        if order_id:
+            logged_count = max(1, round(actual_stake / hedge_fill))
+            if hedge_side == "yes":
+                yes_bets.append((actual_stake, hedge_fill, logged_count, t_min))
+                yes_exposure  += actual_stake
+                yes_contracts += actual_stake / hedge_fill
+            else:
+                no_bets.append((actual_stake, hedge_fill, logged_count, t_min))
+                no_exposure   += actual_stake
+                no_contracts  += actual_stake / hedge_fill
+            n_hedges += 1
+
+        log_bet({**base_row,
+            "yes_exposure_before": round(yes_exposure - (actual_stake if (order_id and hedge_side == "yes") else 0), 4),
+            "no_exposure_before":  round(no_exposure  - (actual_stake if (order_id and hedge_side == "no")  else 0), 4),
+            "bet_side":            f"{hedge_side}-hedge",
+            "stake":               round(actual_stake if order_id else hedge_stake_req, 4),
+            "fill_price":          round(hedge_fill, 4),
+            "count":               max(1, round(actual_stake / hedge_fill)) if order_id else hedge_count,
+            "order_id":            order_id or "none",
+            "order_result":        order_result,
+        })
 
     return yes_bets, no_bets, yes_exposure, no_exposure
 
@@ -749,6 +847,10 @@ def run_window():
 def main():
     mode_label = "PAPER" if PAPER_MODE else "LIVE"
     log.info(f"BTC-Kalshi Trader starting | mode={mode_label} | strategy={MODE} | base_stake=${BASE_STAKE:.2f}")
+    if RH_MINUTE is not None:
+        log.info(f"Reversal-hedge ENABLED | rh_minute=T+{RH_MINUTE} | rh_trigger=${RH_TRIGGER:.2f}")
+    else:
+        log.info("Reversal-hedge disabled (baseline DH)")
     cap_str = f"${MAX_WINDOW_WAGERED:.2f}" if MAX_WINDOW_WAGERED > 0 else "disabled"
     log.info(f"Per-window wagered cap: {cap_str}")
 
