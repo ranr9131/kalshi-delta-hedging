@@ -128,10 +128,34 @@ def no_pnl(stake, yes_price, resolved_yes):
 
 # ── Core: simulate one window in both modes simultaneously ────────────────────
 
-def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=False, dead_zone=0.0, fair_price_2d=False):
+def simulate_market_dh(
+    market,
+    btc_prices,
+    dh_minutes=None,
+    dynamic_fair_price=False,
+    dead_zone=0.0,
+    fair_price_2d=False,
+    ncs_minute: int | None = None,
+    ncs_threshold_pct: float = 0.0,
+    rh_minute: int | None = None,
+    rh_min_trigger: float = 10.0,
+):
     """
     Returns (additive_row, target_row) or (None, None) if data is missing.
     Both modes run on the same fetched candle + BTC data.
+
+    Reversal-aware late-window overlays:
+      ncs_minute / ncs_threshold_pct
+          Skip new entry-direction bets at minute >= ncs_minute when
+          |move| < ncs_threshold_pct. Prevents piling on tiny-edge bets
+          right before settlement when reversal risk dominates.
+
+      rh_minute / rh_min_trigger
+          At each minute >= rh_minute, if BTC direction is opposite the
+          side with current exposure >= rh_min_trigger dollars, buy enough
+          of the now-correct side to neutralize the contracts owned on
+          the losing side. Caps the loss at roughly (orig_wrong_stake +
+          hedge_stake − contracts_owned) instead of full wrong-side stake.
     """
     ticker     = market["ticker"]
     open_iso   = market.get("open_time", "")
@@ -175,6 +199,10 @@ def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=F
     add_yes_bets, add_no_bets = [], []   # list of (stake, kalshi_yes_price)
     tgt_yes_bets, tgt_no_bets = [], []
 
+    # Contracts owned (used by reversal hedge: hedge size = contracts × fill).
+    add_yes_contracts, add_no_contracts = 0.0, 0.0
+    tgt_yes_contracts, tgt_no_contracts = 0.0, 0.0
+
     minutes = dh_minutes if dh_minutes is not None else DH_MINUTES
 
     # ── Minute-by-minute loop ─────────────────────────────────────────────────
@@ -189,6 +217,8 @@ def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=F
             continue
 
         cumulative_pct = abs(btc_t - btc_t0) / btc_t0 * 100
+        kalshi_no   = 1.0 - kalshi_yes
+        direction_up = btc_t > btc_t0
 
         if dead_zone > 0 and cumulative_pct < dead_zone:
             continue
@@ -202,7 +232,7 @@ def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=F
         else:
             fair = FAIR_PRICE
 
-        if btc_t > btc_t0:
+        if direction_up:
             mispricing_yes = fair - kalshi_yes
             mispricing_no  = 0.0
             g_yes = sigmoid_mispricing(mispricing_yes)
@@ -214,13 +244,24 @@ def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=F
             computed_yes = 0.0
             computed_no  = STAKE * f * g_no
 
+        # ── Near-Cutoff Skip overlay ─────────────────────────────────────────
+        # Late in the window, tiny moves are essentially noise. Skip the
+        # entry-direction bet; the reversal-hedge below can still fire.
+        if (ncs_minute is not None
+                and minute >= ncs_minute
+                and cumulative_pct < ncs_threshold_pct):
+            computed_yes = 0.0
+            computed_no  = 0.0
+
         # Additive: bet the full computed amount each interval
         if computed_yes >= MIN_BET:
             add_yes_bets.append((computed_yes, kalshi_yes))
             add_yes_exp += computed_yes
+            add_yes_contracts += computed_yes / kalshi_yes
         if computed_no >= MIN_BET:
             add_no_bets.append((computed_no, kalshi_yes))
             add_no_exp += computed_no
+            add_no_contracts += computed_no / kalshi_no
 
         # Target: only bet the gap to target
         gap_yes = max(0.0, computed_yes - tgt_yes_exp)
@@ -228,9 +269,45 @@ def simulate_market_dh(market, btc_prices, dh_minutes=None, dynamic_fair_price=F
         if gap_yes >= MIN_BET:
             tgt_yes_bets.append((gap_yes, kalshi_yes))
             tgt_yes_exp += gap_yes
+            tgt_yes_contracts += gap_yes / kalshi_yes
         if gap_no >= MIN_BET:
             tgt_no_bets.append((gap_no, kalshi_yes))
             tgt_no_exp += gap_no
+            tgt_no_contracts += gap_no / kalshi_no
+
+        # ── Reversal-Hedge overlay ───────────────────────────────────────────
+        # If BTC direction is opposite the side we have meaningful exposure
+        # on, buy enough of the now-correct side to net out the contracts
+        # owned on the losing side. The YES+NO pair settles for $1 either
+        # way, so this caps loss at roughly (orig_wrong_stake + hedge_stake
+        # − contracts_owned). Applied separately to additive and target.
+        if rh_minute is not None and minute >= rh_minute:
+            if direction_up:
+                if add_no_exp >= rh_min_trigger and add_no_contracts > 0:
+                    hedge = add_no_contracts * kalshi_yes
+                    if hedge >= MIN_BET:
+                        add_yes_bets.append((hedge, kalshi_yes))
+                        add_yes_exp       += hedge
+                        add_yes_contracts += hedge / kalshi_yes
+                if tgt_no_exp >= rh_min_trigger and tgt_no_contracts > 0:
+                    hedge = tgt_no_contracts * kalshi_yes
+                    if hedge >= MIN_BET:
+                        tgt_yes_bets.append((hedge, kalshi_yes))
+                        tgt_yes_exp       += hedge
+                        tgt_yes_contracts += hedge / kalshi_yes
+            else:
+                if add_yes_exp >= rh_min_trigger and add_yes_contracts > 0:
+                    hedge = add_yes_contracts * kalshi_no
+                    if hedge >= MIN_BET:
+                        add_no_bets.append((hedge, kalshi_yes))
+                        add_no_exp       += hedge
+                        add_no_contracts += hedge / kalshi_no
+                if tgt_yes_exp >= rh_min_trigger and tgt_yes_contracts > 0:
+                    hedge = tgt_yes_contracts * kalshi_no
+                    if hedge >= MIN_BET:
+                        tgt_no_bets.append((hedge, kalshi_yes))
+                        tgt_no_exp       += hedge
+                        tgt_no_contracts += hedge / kalshi_no
 
     # ── P&L ──────────────────────────────────────────────────────────────────
     def build_row(yes_bets, no_bets, yes_exp, no_exp):
@@ -297,6 +374,22 @@ def run():
         help="Use 2D (minute × magnitude bucket) empirical win rates as fair price. "
              "Loads data/logs/minute_analysis_2d.csv. Supersedes --dynamic-fair-price."
     )
+    parser.add_argument(
+        "--near-cutoff-skip", nargs=2, metavar=("MINUTE", "THRESHOLD_PCT"),
+        help="Skip new entry-direction bets when minute >= MINUTE and "
+             "|move| < THRESHOLD_PCT%%. Example: --near-cutoff-skip 11 0.08"
+    )
+    parser.add_argument(
+        "--reversal-hedge", nargs="?", const="11", default=None, metavar="MINUTE",
+        help="Enable late-window reversal hedge starting at minute MINUTE "
+             "(default 11 when bare flag). When BTC direction is opposite the "
+             "side we hold meaningful exposure on, buy the correct side to "
+             "neutralize the loss."
+    )
+    parser.add_argument(
+        "--rh-trigger", type=float, default=10.0,
+        help="Minimum wrong-side exposure ($) to trigger reversal hedge (default 10)."
+    )
     args = parser.parse_args()
 
     start_min, end_min = map(int, args.minutes.split("-"))
@@ -305,6 +398,14 @@ def run():
     dynamic_fp  = args.dynamic_fair_price
     dead_zone   = args.dead_zone
     use_2d      = args.fair_price_2d
+
+    ncs_minute, ncs_thresh = None, 0.0
+    if args.near_cutoff_skip is not None:
+        ncs_minute = int(args.near_cutoff_skip[0])
+        ncs_thresh = float(args.near_cutoff_skip[1])
+
+    rh_minute  = int(args.reversal_hedge) if args.reversal_hedge is not None else None
+    rh_trigger = float(args.rh_trigger)
 
     if use_2d:
         csv_2d = os.path.join(LOGS_DIR, "minute_analysis_2d.csv")
@@ -322,6 +423,10 @@ def run():
     else:
         print(f"Fair price: fixed ({FAIR_PRICE})")
     print(f"Dead zone:  {'none' if dead_zone == 0 else f'±{dead_zone}%'}")
+    if ncs_minute is not None:
+        print(f"Near-cutoff skip: minute >= {ncs_minute} and |move| < {ncs_thresh}%")
+    if rh_minute is not None:
+        print(f"Reversal hedge:   minute >= {rh_minute}, trigger ≥ ${rh_trigger:.0f} wrong-side exposure")
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -352,7 +457,11 @@ def run():
     print(f"Simulating {len(markets)} windows (both modes simultaneously)...\n")
 
     for i, market in enumerate(markets):
-        add_row, tgt_row = simulate_market_dh(market, btc_prices, dh_minutes, dynamic_fp, dead_zone, use_2d)
+        add_row, tgt_row = simulate_market_dh(
+            market, btc_prices, dh_minutes, dynamic_fp, dead_zone, use_2d,
+            ncs_minute=ncs_minute, ncs_threshold_pct=ncs_thresh,
+            rh_minute=rh_minute, rh_min_trigger=rh_trigger,
+        )
         if add_row is None:
             skipped += 1
             continue
@@ -379,7 +488,9 @@ def run():
     range_part = "" if is_default else f"_{args.minutes.replace('-', '_')}"
     fp_part    = "_2d" if use_2d else ("_dynamic" if dynamic_fp else "")
     dz_part    = f"_dz{str(dead_zone).replace('.', 'p')}" if dead_zone > 0 else ""
-    suffix     = range_part + fp_part + dz_part
+    ncs_part   = f"_ncs{ncs_minute}-{str(ncs_thresh).replace('.', 'p')}" if ncs_minute is not None else ""
+    rh_part    = f"_rh{rh_minute}" if rh_minute is not None else ""
+    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part
     write_csv(add_results, f"simulation_results_dh_additive{suffix}.csv")
     write_csv(tgt_results, f"simulation_results_dh_target{suffix}.csv")
 
