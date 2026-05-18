@@ -38,7 +38,13 @@ MIN_BET    = float(env.get("MIN_BET", "5.0"))
 # Hard cap on total dollars wagered within a single 15-min window. The DH loop
 # truncates each bet to fit; once the cap is reached no further bets are placed.
 # Worst-case window loss ≈ this number. Set to 0 to disable.
-MAX_WINDOW_WAGERED = float(env.get("MAX_WINDOW_WAGERED", "0"))
+#
+# Cap policy: if CAP_FRACTION_OF_BALANCE > 0, the cap is computed dynamically
+# each window as balance × CAP_FRACTION_OF_BALANCE (lets the cap scale with
+# winnings, shrink on losses). Falls back to MAX_WINDOW_WAGERED if balance
+# fetch fails or CAP_FRACTION_OF_BALANCE is 0.
+MAX_WINDOW_WAGERED      = float(env.get("MAX_WINDOW_WAGERED", "0"))
+CAP_FRACTION_OF_BALANCE = float(env.get("CAP_FRACTION_OF_BALANCE", "0.0"))
 
 # Reversal-hedge overlay. If RH_MINUTE is set (e.g. 10), then at each minute
 # >= RH_MINUTE during the DH loop, if BTC direction is opposite the side we
@@ -325,6 +331,7 @@ def run_dh_loop(
     btc_t0: float,
     ticker: str,
     close_time: str,
+    window_cap: float = 0.0,   # dollars; 0 = no cap
 ) -> tuple[list, list, float, float]:
     """
     Run delta hedging from T+4:00 to T+13:00 on a 30s cadence, placing bets on
@@ -415,10 +422,10 @@ def run_dh_loop(
             bet_no  = target_no
 
         # Per-window wagered cap: truncate so cumulative wagered (yes + no
-        # exposure) never exceeds MAX_WINDOW_WAGERED. Once at cap, both bets
-        # shrink to 0 and fall below MIN_BET below.
-        if MAX_WINDOW_WAGERED > 0:
-            remaining = max(0.0, MAX_WINDOW_WAGERED - (yes_exposure + no_exposure))
+        # exposure) never exceeds window_cap. Once at cap, both bets shrink
+        # to 0 and fall below MIN_BET below.
+        if window_cap > 0:
+            remaining = max(0.0, window_cap - (yes_exposure + no_exposure))
             if bet_yes + bet_no > remaining:
                 if remaining <= 0:
                     bet_yes = bet_no = 0.0
@@ -428,7 +435,7 @@ def run_dh_loop(
                     bet_no  = remaining * (bet_no  / total_req)
                 log.info(
                     f"  -> CAP: window wagered ${yes_exposure + no_exposure:.2f}/"
-                    f"${MAX_WINDOW_WAGERED:.2f} → bet truncated to "
+                    f"${window_cap:.2f} → bet truncated to "
                     f"yes=${bet_yes:.2f} no=${bet_no:.2f}"
                 )
 
@@ -566,9 +573,9 @@ def run_dh_loop(
         else:
             continue
 
-        # Cap to MAX_WINDOW_WAGERED if configured
-        if MAX_WINDOW_WAGERED > 0:
-            remaining = max(0.0, MAX_WINDOW_WAGERED - (yes_exposure + no_exposure))
+        # Cap to window_cap if configured
+        if window_cap > 0:
+            remaining = max(0.0, window_cap - (yes_exposure + no_exposure))
             if hedge_stake_req > remaining:
                 log.info(
                     f"  -> RH-{hedge_side.upper()} truncated by window cap: "
@@ -784,7 +791,21 @@ def run_window():
         return
 
     # ── dh-target / dh-additive mode: DH loop ────────────────────────────────
-    yes_bets, no_bets, yes_exp, no_exp = run_dh_loop(window_ts, btc_t0, ticker, close_time)
+    # Determine the per-window wagered cap. If CAP_FRACTION_OF_BALANCE > 0,
+    # cap = balance * fraction (recomputed every window). Falls back to the
+    # static MAX_WINDOW_WAGERED if balance lookup fails.
+    window_cap = MAX_WINDOW_WAGERED
+    if CAP_FRACTION_OF_BALANCE > 0 and not PAPER_MODE:
+        bal = kalshi_trade.get_balance(PRIVATE_KEY, API_KEY_ID)
+        if bal is not None:
+            window_cap = bal * CAP_FRACTION_OF_BALANCE
+            log.info(f"Window cap: ${window_cap:.2f} (balance ${bal:.2f} × {CAP_FRACTION_OF_BALANCE:.2f})")
+        else:
+            log.warning(f"Balance fetch failed, falling back to static cap ${window_cap:.2f}")
+    elif window_cap > 0:
+        log.info(f"Window cap (static): ${window_cap:.2f}")
+
+    yes_bets, no_bets, yes_exp, no_exp = run_dh_loop(window_ts, btc_t0, ticker, close_time, window_cap)
 
     btc_t10 = get_btc_with_retry()
 
@@ -851,8 +872,13 @@ def main():
         log.info(f"Reversal-hedge ENABLED | rh_minute=T+{RH_MINUTE} | rh_trigger=${RH_TRIGGER:.2f}")
     else:
         log.info("Reversal-hedge disabled (baseline DH)")
-    cap_str = f"${MAX_WINDOW_WAGERED:.2f}" if MAX_WINDOW_WAGERED > 0 else "disabled"
-    log.info(f"Per-window wagered cap: {cap_str}")
+    if CAP_FRACTION_OF_BALANCE > 0:
+        log.info(f"Per-window wagered cap: dynamic = balance × {CAP_FRACTION_OF_BALANCE:.2f} "
+                 f"(fallback ${MAX_WINDOW_WAGERED:.2f} if balance fetch fails)")
+    elif MAX_WINDOW_WAGERED > 0:
+        log.info(f"Per-window wagered cap: static ${MAX_WINDOW_WAGERED:.2f}")
+    else:
+        log.info("Per-window wagered cap: disabled")
 
     if not os.path.exists(_2D_CSV_PATH):
         log.error(f"2D fair price table not found: {_2D_CSV_PATH}. Run analyze_minutes_2d.py first.")

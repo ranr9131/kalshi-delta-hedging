@@ -10,7 +10,10 @@ from kalshi_auth import make_auth_headers
 BASE_URL = "https://api.elections.kalshi.com"
 SERIES   = "KXBTC15M"
 
-FILL_BUFFER_CENTS = 2  # absorbs ~300ms price movement between WS read and order landing
+FILL_BUFFER_CENTS = 5  # absorbs ~300ms price movement between WS read and order landing
+# Previously 2 cents — got "rested and cancelled" too often on fast 15m BTC markets
+# where the top-of-book moves 3-5c between read and submit. 5c is a 4-5% drag on
+# a $0.50 contract but vastly improves fill rate.
 
 
 def get_open_market() -> dict | None:
