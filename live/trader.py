@@ -102,14 +102,21 @@ WINDOW_LOG_FIELDS = [
 ]
 
 WINDOW_MINUTES       = 15
-# DH cadence: evaluate every 30s from T+4:00 through T+13:00.
+# DH cadence: evaluate every 30s from T+4:00 through T+14:00.
+# Extended past T+13 to catch last-second reversals that flip the outcome
+# between our last sample and settlement (the "T+13 → T+15 blind spot").
 DH_TICK_SECS         = 30
 DH_FIRST_TICK_SECS   = 4 * 60
-DH_LAST_TICK_SECS    = 13 * 60
+DH_LAST_TICK_SECS    = 14 * 60
 DH_OFFSETS_SECS      = list(range(DH_FIRST_TICK_SECS, DH_LAST_TICK_SECS + 1, DH_TICK_SECS))
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
-MAX_FILL_PRICE       = 0.97   # skip bets whose buffered fill price exceeds this
+MAX_FILL_PRICE       = 0.97   # skip ENTRY bets whose buffered fill price exceeds this
+# Hedges (RH) use a much higher cap because they're insurance — buying the
+# now-correct side at high prices still has real value when you already hold
+# the opposite side. The 99:1 R:R math that applies to entry bets doesn't
+# apply to hedges (the hedge locks in fixed P&L regardless of who wins).
+MAX_HEDGE_FILL_PRICE = 0.995
 
 BTC_RETRY_ATTEMPTS   = 3
 BTC_RETRY_DELAY_SECS = 5
@@ -585,10 +592,10 @@ def run_dh_loop(
 
         if hedge_stake_req < MIN_BET:
             continue
-        if hedge_fill > MAX_FILL_PRICE:
+        if hedge_fill > MAX_HEDGE_FILL_PRICE:
             log.info(
                 f"  -> SKIP RH-{hedge_side.upper()} ${hedge_stake_req:.2f}: "
-                f"fill {hedge_fill:.3f} > cap {MAX_FILL_PRICE}"
+                f"fill {hedge_fill:.3f} > hedge cap {MAX_HEDGE_FILL_PRICE}"
             )
             continue
 
