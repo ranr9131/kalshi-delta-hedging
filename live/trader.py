@@ -112,11 +112,12 @@ DH_OFFSETS_SECS      = list(range(DH_FIRST_TICK_SECS, DH_LAST_TICK_SECS + 1, DH_
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
 MAX_FILL_PRICE       = 0.97   # skip ENTRY bets whose buffered fill price exceeds this
-# Hedges (RH) use a much higher cap because they're insurance — buying the
-# now-correct side at high prices still has real value when you already hold
-# the opposite side. The 99:1 R:R math that applies to entry bets doesn't
-# apply to hedges (the hedge locks in fixed P&L regardless of who wins).
-MAX_HEDGE_FILL_PRICE = 0.995
+# Hedges (RH) skip when fill exceeds this. Was 0.995 (allow any fill); lowered
+# to 0.80 after observing cascade losses where hedges at $0.85-0.99 had
+# minimal insurance value (you pay 95c to receive $1 if right — that's 5c of
+# insurance per contract, often less than the spread + fee leakage). Skipping
+# expensive hedges means accepting the wrong-side loss, which is bounded.
+MAX_HEDGE_FILL_PRICE = 0.80
 
 BTC_RETRY_ATTEMPTS   = 3
 BTC_RETRY_DELAY_SECS = 5
@@ -354,6 +355,13 @@ def run_dh_loop(
     yes_contracts = 0.0
     no_contracts  = 0.0
     n_hedges      = 0
+    # Track WHICH contracts have already been hedged. Without this, the RH
+    # block re-fires every tick where conditions hold (direction still
+    # opposite the wrong-side exposure that hasn't changed). Tracking the
+    # already-hedged amount means RH only fires when wrong-side exposure
+    # GROWS beyond what's already covered.
+    no_contracts_hedged  = 0.0   # how many NO contracts are already covered by YES hedges
+    yes_contracts_hedged = 0.0   # how many YES contracts are already covered by NO hedges
 
     for offset_secs in DH_OFFSETS_SECS:
         t_min      = offset_secs / 60.0           # fractional minute, for logging / dh_minute column
@@ -489,35 +497,36 @@ def run_dh_loop(
                     f"| reason: risk {fill*100:.1f}c to win {upside_per*100:.1f}c per contract "
                     f"(R:R {ratio:.0f}:1 against)"
                 )
-                continue
-            count = max(1, round(bet_yes / fill))
-            log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
-            actual_stake = bet_yes
-            if PAPER_MODE:
-                order_id, order_result = "paper", "paper"
-                log.info("     [PAPER] no order submitted")
+                # NOTE: was `continue` — fall through so NO block + RH still evaluate
             else:
-                order_id, err, actual_stake = place_order_with_retry(ticker, "yes", market, bet_yes)
-                order_result  = "ok" if order_id else f"error: {err}"
-                if order_id:
-                    log.info(f"     YES order placed: {order_id}  (filled ${actual_stake:.2f})")
+                count = max(1, round(bet_yes / fill))
+                log.info(f"  -> BET YES ${bet_yes:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+                actual_stake = bet_yes
+                if PAPER_MODE:
+                    order_id, order_result = "paper", "paper"
+                    log.info("     [PAPER] no order submitted")
                 else:
-                    log.error(f"     YES order FAILED: {err}")
-            if order_id:   # only count bet toward exposure if it actually placed
-                logged_count = max(1, round(actual_stake / fill))
-                yes_bets.append((actual_stake, fill, logged_count, t_min))
-                yes_exposure += actual_stake
-                yes_contracts += actual_stake / fill
-            log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure - (actual_stake if order_id else 0), 4),
-                "no_exposure_before":  round(no_exposure, 4),
-                "bet_side":            "yes",
-                "stake":               round(actual_stake if order_id else bet_yes, 4),
-                "fill_price":          round(fill, 4),
-                "count":               max(1, round(actual_stake / fill)) if order_id else count,
-                "order_id":            order_id or "none",
-                "order_result":        order_result,
-            })
+                    order_id, err, actual_stake = place_order_with_retry(ticker, "yes", market, bet_yes)
+                    order_result  = "ok" if order_id else f"error: {err}"
+                    if order_id:
+                        log.info(f"     YES order placed: {order_id}  (filled ${actual_stake:.2f})")
+                    else:
+                        log.error(f"     YES order FAILED: {err}")
+                if order_id:   # only count bet toward exposure if it actually placed
+                    logged_count = max(1, round(actual_stake / fill))
+                    yes_bets.append((actual_stake, fill, logged_count, t_min))
+                    yes_exposure += actual_stake
+                    yes_contracts += actual_stake / fill
+                log_bet({**base_row,
+                    "yes_exposure_before": round(yes_exposure - (actual_stake if order_id else 0), 4),
+                    "no_exposure_before":  round(no_exposure, 4),
+                    "bet_side":            "yes",
+                    "stake":               round(actual_stake if order_id else bet_yes, 4),
+                    "fill_price":          round(fill, 4),
+                    "count":               max(1, round(actual_stake / fill)) if order_id else count,
+                    "order_id":            order_id or "none",
+                    "order_result":        order_result,
+                })
 
         if bet_no >= MIN_BET:
             fill  = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
@@ -529,35 +538,36 @@ def run_dh_loop(
                     f"| reason: risk {fill*100:.1f}c to win {upside_per*100:.1f}c per contract "
                     f"(R:R {ratio:.0f}:1 against)"
                 )
-                continue
-            count = max(1, round(bet_no / fill))
-            log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
-            actual_stake = bet_no
-            if PAPER_MODE:
-                order_id, order_result = "paper", "paper"
-                log.info("     [PAPER] no order submitted")
+                # NOTE: was `continue` — fall through so RH still evaluates
             else:
-                order_id, err, actual_stake = place_order_with_retry(ticker, "no", market, bet_no)
-                order_result  = "ok" if order_id else f"error: {err}"
-                if order_id:
-                    log.info(f"     NO order placed: {order_id}  (filled ${actual_stake:.2f})")
+                count = max(1, round(bet_no / fill))
+                log.info(f"  -> BET NO  ${bet_no:.2f} @ {fill:.3f} ({fill*100:.1f}c/contract) | {count} contracts")
+                actual_stake = bet_no
+                if PAPER_MODE:
+                    order_id, order_result = "paper", "paper"
+                    log.info("     [PAPER] no order submitted")
                 else:
-                    log.error(f"     NO order FAILED: {err}")
-            if order_id:   # only count bet toward exposure if it actually placed
-                logged_count = max(1, round(actual_stake / fill))
-                no_bets.append((actual_stake, fill, logged_count, t_min))
-                no_exposure += actual_stake
-                no_contracts += actual_stake / fill
-            log_bet({**base_row,
-                "yes_exposure_before": round(yes_exposure, 4),
-                "no_exposure_before":  round(no_exposure - (actual_stake if order_id else 0), 4),
-                "bet_side":            "no",
-                "stake":               round(actual_stake if order_id else bet_no, 4),
-                "fill_price":          round(fill, 4),
-                "count":               max(1, round(actual_stake / fill)) if order_id else count,
-                "order_id":            order_id or "none",
-                "order_result":        order_result,
-            })
+                    order_id, err, actual_stake = place_order_with_retry(ticker, "no", market, bet_no)
+                    order_result  = "ok" if order_id else f"error: {err}"
+                    if order_id:
+                        log.info(f"     NO order placed: {order_id}  (filled ${actual_stake:.2f})")
+                    else:
+                        log.error(f"     NO order FAILED: {err}")
+                if order_id:   # only count bet toward exposure if it actually placed
+                    logged_count = max(1, round(actual_stake / fill))
+                    no_bets.append((actual_stake, fill, logged_count, t_min))
+                    no_exposure += actual_stake
+                    no_contracts += actual_stake / fill
+                log_bet({**base_row,
+                    "yes_exposure_before": round(yes_exposure, 4),
+                    "no_exposure_before":  round(no_exposure - (actual_stake if order_id else 0), 4),
+                    "bet_side":            "no",
+                    "stake":               round(actual_stake if order_id else bet_no, 4),
+                    "fill_price":          round(fill, 4),
+                    "count":               max(1, round(actual_stake / fill)) if order_id else count,
+                    "order_id":            order_id or "none",
+                    "order_result":        order_result,
+                })
 
         # ── Reversal-Hedge overlay ──────────────────────────────────────────
         # At every minute >= RH_MINUTE, if BTC direction is opposite the side
@@ -567,16 +577,30 @@ def run_dh_loop(
             continue
 
         hedge_side = None
-        if direction_up and no_exposure >= RH_TRIGGER and no_contracts > 0:
+        # NET-EXPOSURE hedging: hedge only to bring the YES-vs-NO contract
+        # balance to ~zero (not to "cover" all wrong-side contracts).
+        # Why this matters: under the old "cover all" logic, every direction
+        # flip in a choppy window fired another hedge — each leg paid spread,
+        # cascading into compounding losses. Under net-exposure logic, once
+        # yes_contracts ≈ no_contracts, the position is already neutral and
+        # no further hedge fires regardless of how BTC oscillates.
+        #
+        # RH_TRIGGER here is interpreted as minimum NET imbalance in contracts
+        # (was dollars under the old model; close enough at small stake).
+        net_yes = yes_contracts - no_contracts   # +ve = net YES, -ve = net NO
+
+        if direction_up and net_yes < -RH_TRIGGER:
+            # Net NO exposure with BTC above floor — buy YES to neutralize.
             hedge_side       = "yes"
             hedge_fill       = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
-            hedge_stake_req  = no_contracts * hedge_fill
-            cover_contracts  = no_contracts
-        elif (not direction_up) and yes_exposure >= RH_TRIGGER and yes_contracts > 0:
+            cover_contracts  = -net_yes   # contracts of NO not yet offset by YES
+            hedge_stake_req  = cover_contracts * hedge_fill
+        elif (not direction_up) and net_yes > RH_TRIGGER:
+            # Net YES exposure with BTC below floor — buy NO to neutralize.
             hedge_side       = "no"
             hedge_fill       = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
-            hedge_stake_req  = yes_contracts * hedge_fill
-            cover_contracts  = yes_contracts
+            cover_contracts  = net_yes
+            hedge_stake_req  = cover_contracts * hedge_fill
         else:
             continue
 
@@ -625,10 +649,13 @@ def run_dh_loop(
                 yes_bets.append((actual_stake, hedge_fill, logged_count, t_min))
                 yes_exposure  += actual_stake
                 yes_contracts += actual_stake / hedge_fill
+                # Mark NO contracts as hedged so we don't re-fire next tick.
+                no_contracts_hedged = no_contracts
             else:
                 no_bets.append((actual_stake, hedge_fill, logged_count, t_min))
                 no_exposure   += actual_stake
                 no_contracts  += actual_stake / hedge_fill
+                yes_contracts_hedged = yes_contracts
             n_hedges += 1
 
         log_bet({**base_row,
