@@ -128,6 +128,20 @@ def no_pnl(stake, yes_price, resolved_yes):
 
 # ── Core: simulate one window in both modes simultaneously ────────────────────
 
+def time_decay_mult(minute: int) -> float:
+    """
+    Stake-size multiplier by minute remaining. Early-window signals (T+4-T+6)
+    are mostly noise on a 15m strike — shrink size; late-window signals carry
+    more weight — boost size. Designed to limit damage from fast reversals
+    after big T+4 entries.
+    """
+    if minute <= 6:
+        return 0.4
+    if minute <= 9:
+        return 0.8
+    return 1.2
+
+
 def simulate_market_dh(
     market,
     btc_prices,
@@ -139,6 +153,7 @@ def simulate_market_dh(
     ncs_threshold_pct: float = 0.0,
     rh_minute: int | None = None,
     rh_min_trigger: float = 10.0,
+    time_decay: bool = False,
 ):
     """
     Returns (additive_row, target_row) or (None, None) if data is missing.
@@ -232,17 +247,19 @@ def simulate_market_dh(
         else:
             fair = FAIR_PRICE
 
+        td_mult = time_decay_mult(minute) if time_decay else 1.0
+
         if direction_up:
             mispricing_yes = fair - kalshi_yes
             mispricing_no  = 0.0
             g_yes = sigmoid_mispricing(mispricing_yes)
-            computed_yes = STAKE * f * g_yes
+            computed_yes = STAKE * f * g_yes * td_mult
             computed_no  = 0.0
         else:
             mispricing_no  = kalshi_yes - (1.0 - fair)
             g_no = sigmoid_mispricing(mispricing_no)
             computed_yes = 0.0
-            computed_no  = STAKE * f * g_no
+            computed_no  = STAKE * f * g_no * td_mult
 
         # ── Near-Cutoff Skip overlay ─────────────────────────────────────────
         # Late in the window, tiny moves are essentially noise. Skip the
@@ -390,6 +407,11 @@ def run():
         "--rh-trigger", type=float, default=10.0,
         help="Minimum wrong-side exposure ($) to trigger reversal hedge (default 10)."
     )
+    parser.add_argument(
+        "--time-decay", action="store_true",
+        help="Apply time-decay sizing: stake × 0.4 (T+4-T+6), × 0.8 (T+7-T+9), "
+             "× 1.2 (T+10+). Reduces damage from fast reversals after big early entries."
+    )
     args = parser.parse_args()
 
     start_min, end_min = map(int, args.minutes.split("-"))
@@ -406,6 +428,7 @@ def run():
 
     rh_minute  = int(args.reversal_hedge) if args.reversal_hedge is not None else None
     rh_trigger = float(args.rh_trigger)
+    time_decay = args.time_decay
 
     if use_2d:
         csv_2d = os.path.join(LOGS_DIR, "minute_analysis_2d.csv")
@@ -427,6 +450,8 @@ def run():
         print(f"Near-cutoff skip: minute >= {ncs_minute} and |move| < {ncs_thresh}%")
     if rh_minute is not None:
         print(f"Reversal hedge:   minute >= {rh_minute}, trigger ≥ ${rh_trigger:.0f} wrong-side exposure")
+    if time_decay:
+        print(f"Time-decay sizing: × 0.4 (T+4-T+6), × 0.8 (T+7-T+9), × 1.2 (T+10+)")
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -461,6 +486,7 @@ def run():
             market, btc_prices, dh_minutes, dynamic_fp, dead_zone, use_2d,
             ncs_minute=ncs_minute, ncs_threshold_pct=ncs_thresh,
             rh_minute=rh_minute, rh_min_trigger=rh_trigger,
+            time_decay=time_decay,
         )
         if add_row is None:
             skipped += 1
@@ -490,7 +516,8 @@ def run():
     dz_part    = f"_dz{str(dead_zone).replace('.', 'p')}" if dead_zone > 0 else ""
     ncs_part   = f"_ncs{ncs_minute}-{str(ncs_thresh).replace('.', 'p')}" if ncs_minute is not None else ""
     rh_part    = f"_rh{rh_minute}" if rh_minute is not None else ""
-    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part
+    td_part    = "_td" if time_decay else ""
+    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part + td_part
     write_csv(add_results, f"simulation_results_dh_additive{suffix}.csv")
     write_csv(tgt_results, f"simulation_results_dh_target{suffix}.csv")
 

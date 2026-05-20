@@ -119,6 +119,21 @@ MAX_FILL_PRICE       = 0.97   # skip ENTRY bets whose buffered fill price exceed
 # expensive hedges means accepting the wrong-side loss, which is bounded.
 MAX_HEDGE_FILL_PRICE = 0.80
 
+# Time-decay sizing: shrink early-window bets (signal is mostly noise), grow
+# late-window bets (signal has played out). Sim across 6,275 historical
+# windows: +$65k P&L, -$224k wagered, +6.5pp ROI, $55k loss-recovery on the
+# baseline-losing windows. Disable by setting TIME_DECAY=false in .env.
+TIME_DECAY = env.get("TIME_DECAY", "true").strip().lower() not in ("false", "0", "no", "")
+
+
+def time_decay_mult(t_min: float) -> float:
+    if t_min < 7:
+        return 0.4
+    if t_min < 10:
+        return 0.8
+    return 1.2
+
+
 BTC_RETRY_ATTEMPTS   = 3
 BTC_RETRY_DELAY_SECS = 5
 MAX_PRICE_AGE_SECS   = 10
@@ -291,7 +306,7 @@ def wait_for_close(close_time_str: str) -> None:
         time.sleep(600)
 
 
-def poll_settlement(ticker: str, timeout_secs: int = 120) -> str | None:
+def poll_settlement(ticker: str, timeout_secs: int = 600) -> str | None:
     log.info(f"Polling settlement for {ticker}...")
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
@@ -418,15 +433,16 @@ def run_dh_loop(
         fair = get_fair_price_2d(minute_idx, abs_pct_move)
 
         buf = kalshi_trade.FILL_BUFFER_CENTS / 100
+        td_mult = time_decay_mult(t_min) if TIME_DECAY else 1.0
         if direction_up:
             mispricing = fair - (yes_ask + buf)   # true edge after buffer cost
             g_misprice = strategy.sigmoid_mispricing(mispricing)
-            target_yes = BASE_STAKE * f_btc * g_misprice
+            target_yes = BASE_STAKE * f_btc * g_misprice * td_mult
             target_no  = 0.0
         else:
             mispricing = fair - ((1.0 - yes_bid) + buf)  # P(direction correct) - no_fill cost
             g_misprice = strategy.sigmoid_mispricing(mispricing)
-            target_no  = BASE_STAKE * f_btc * g_misprice
+            target_no  = BASE_STAKE * f_btc * g_misprice * td_mult
             target_yes = 0.0
 
         if MODE == "dh-target":
@@ -906,6 +922,10 @@ def main():
         log.info(f"Reversal-hedge ENABLED | rh_minute=T+{RH_MINUTE} | rh_trigger=${RH_TRIGGER:.2f}")
     else:
         log.info("Reversal-hedge disabled (baseline DH)")
+    if TIME_DECAY:
+        log.info("Time-decay sizing ENABLED | × 0.4 (T+4-T+6.5) | × 0.8 (T+7-T+9.5) | × 1.2 (T+10+)")
+    else:
+        log.info("Time-decay sizing disabled (flat sizing)")
     if CAP_FRACTION_OF_BALANCE > 0:
         log.info(f"Per-window wagered cap: dynamic = balance × {CAP_FRACTION_OF_BALANCE:.2f} "
                  f"(fallback ${MAX_WINDOW_WAGERED:.2f} if balance fetch fails)")
