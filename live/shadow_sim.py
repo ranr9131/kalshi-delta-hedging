@@ -74,6 +74,12 @@ VARIANTS = [
     ("rh-10",         dict(rh_minute=10)),
     ("ncs-11-0.08",   dict(ncs_minute=11, ncs_threshold=0.08)),
     ("ncs11+rh12",    dict(ncs_minute=11, ncs_threshold=0.08, rh_minute=12)),
+    # Time-decay overlay (mirrors live trader's current config)
+    ("td+rh10",       dict(rh_minute=10, time_decay=True)),
+    # Time-decay + early-window strike-proximity skip @ T+5, 0.025%
+    # (proposed next improvement; +0.5pp ROI in 6,275-window sim)
+    ("td+rh10+es5",   dict(rh_minute=10, time_decay=True,
+                           early_skip_minute=5, early_skip_pct=0.025)),
 ]
 
 _DIR             = os.path.dirname(os.path.abspath(__file__))
@@ -169,9 +175,17 @@ def pnl_bet(side: str, stake: float, fill_price: float, winner: str) -> float:
 
 
 # ── Per-variant minute step ───────────────────────────────────────────────────
+def _time_decay_mult(minute: int) -> float:
+    if minute <= 6: return 0.4
+    if minute <= 9: return 0.8
+    return 1.2
+
+
 def step_variant(state, snapshot, *,
                  ncs_minute=None, ncs_threshold=0.0,
-                 rh_minute=None, rh_trigger=10.0):
+                 rh_minute=None, rh_trigger=10.0,
+                 time_decay=False,
+                 early_skip_minute=0, early_skip_pct=0.0):
     """
     Apply one minute's decision to a variant's state dict (mutates in place).
 
@@ -189,20 +203,26 @@ def step_variant(state, snapshot, *,
 
     f_btc = strategy.sigmoid_btc(abs_pct)
     fair  = fair_price(minute, abs_pct)
+    td_mult = _time_decay_mult(minute) if time_decay else 1.0
 
     if dir_up:
         mispricing = fair - kal_yes
         g          = strategy.sigmoid_mispricing(mispricing)
-        target_yes = BASE_STAKE * f_btc * g
+        target_yes = BASE_STAKE * f_btc * g * td_mult
         target_no  = 0.0
     else:
         mispricing = kal_yes - (1.0 - fair)
         g          = strategy.sigmoid_mispricing(mispricing)
         target_yes = 0.0
-        target_no  = BASE_STAKE * f_btc * g
+        target_no  = BASE_STAKE * f_btc * g * td_mult
 
-    # Near-Cutoff Skip
+    # Near-Cutoff Skip (late ticks, tiny moves are noise)
     if ncs_minute is not None and minute >= ncs_minute and abs_pct < ncs_threshold:
+        target_yes = 0.0
+        target_no  = 0.0
+
+    # Early-window strike-proximity skip (T+4/5/6 near-zero moves are noise)
+    if early_skip_minute > 0 and minute <= early_skip_minute and abs_pct < early_skip_pct:
         target_yes = 0.0
         target_no  = 0.0
 

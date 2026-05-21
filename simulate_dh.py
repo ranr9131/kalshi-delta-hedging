@@ -154,6 +154,8 @@ def simulate_market_dh(
     rh_minute: int | None = None,
     rh_min_trigger: float = 10.0,
     time_decay: bool = False,
+    early_skip_minute: int = 0,
+    early_skip_pct: float = 0.0,
 ):
     """
     Returns (additive_row, target_row) or (None, None) if data is missing.
@@ -267,6 +269,17 @@ def simulate_market_dh(
         if (ncs_minute is not None
                 and minute >= ncs_minute
                 and cumulative_pct < ncs_threshold_pct):
+            computed_yes = 0.0
+            computed_no  = 0.0
+
+        # ── Early-window strike-proximity skip ───────────────────────────────
+        # Mirror of NCS for EARLY ticks. At minute <= early_skip_minute, if
+        # BTC is hovering near the strike (|move| < early_skip_pct), the T+4/5
+        # signal is mostly noise — many of these reversals lose money. Skip
+        # the entry-direction bet (RH-style hedges later can still fire).
+        if (early_skip_minute > 0
+                and minute <= early_skip_minute
+                and cumulative_pct < early_skip_pct):
             computed_yes = 0.0
             computed_no  = 0.0
 
@@ -412,6 +425,12 @@ def run():
         help="Apply time-decay sizing: stake × 0.4 (T+4-T+6), × 0.8 (T+7-T+9), "
              "× 1.2 (T+10+). Reduces damage from fast reversals after big early entries."
     )
+    parser.add_argument(
+        "--early-skip", nargs=2, metavar=("MINUTE", "THRESHOLD_PCT"),
+        help="Skip new entry-direction bets when minute <= MINUTE and "
+             "|move| < THRESHOLD_PCT%%. Avoids noise-trap T+4 entries on "
+             "near-zero moves that reverse. Example: --early-skip 4 0.025"
+    )
     args = parser.parse_args()
 
     start_min, end_min = map(int, args.minutes.split("-"))
@@ -429,6 +448,11 @@ def run():
     rh_minute  = int(args.reversal_hedge) if args.reversal_hedge is not None else None
     rh_trigger = float(args.rh_trigger)
     time_decay = args.time_decay
+
+    early_skip_minute, early_skip_pct = 0, 0.0
+    if args.early_skip is not None:
+        early_skip_minute = int(args.early_skip[0])
+        early_skip_pct    = float(args.early_skip[1])
 
     if use_2d:
         csv_2d = os.path.join(LOGS_DIR, "minute_analysis_2d.csv")
@@ -452,6 +476,8 @@ def run():
         print(f"Reversal hedge:   minute >= {rh_minute}, trigger ≥ ${rh_trigger:.0f} wrong-side exposure")
     if time_decay:
         print(f"Time-decay sizing: × 0.4 (T+4-T+6), × 0.8 (T+7-T+9), × 1.2 (T+10+)")
+    if early_skip_minute > 0:
+        print(f"Early-window skip:  minute <= {early_skip_minute} and |move| < {early_skip_pct}%")
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -487,6 +513,8 @@ def run():
             ncs_minute=ncs_minute, ncs_threshold_pct=ncs_thresh,
             rh_minute=rh_minute, rh_min_trigger=rh_trigger,
             time_decay=time_decay,
+            early_skip_minute=early_skip_minute,
+            early_skip_pct=early_skip_pct,
         )
         if add_row is None:
             skipped += 1
@@ -517,7 +545,8 @@ def run():
     ncs_part   = f"_ncs{ncs_minute}-{str(ncs_thresh).replace('.', 'p')}" if ncs_minute is not None else ""
     rh_part    = f"_rh{rh_minute}" if rh_minute is not None else ""
     td_part    = "_td" if time_decay else ""
-    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part + td_part
+    es_part    = f"_es{early_skip_minute}-{str(early_skip_pct).replace('.','p')}" if early_skip_minute > 0 else ""
+    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part + td_part + es_part
     write_csv(add_results, f"simulation_results_dh_additive{suffix}.csv")
     write_csv(tgt_results, f"simulation_results_dh_target{suffix}.csv")
 
