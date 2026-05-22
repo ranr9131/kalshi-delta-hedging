@@ -125,6 +125,12 @@ MAX_HEDGE_FILL_PRICE = 0.80
 # baseline-losing windows. Disable by setting TIME_DECAY=false in .env.
 TIME_DECAY = env.get("TIME_DECAY", "true").strip().lower() not in ("false", "0", "no", "")
 
+# Minimum required edge (in CENTS) for a new entry-direction bet.
+# Real Kalshi fees average ~1.75c per contract on a 50c market — any trade
+# with edge < 1c is destined to be unprofitable after fees. The sim shows
+# adding this filter recovers +5-8pp ROI vs no filter. Set to 0 to disable.
+MIN_EDGE_CENTS = float(env.get("MIN_EDGE_CENTS", "1.0"))
+
 
 def time_decay_mult(t_min: float) -> float:
     if t_min < 7:
@@ -251,6 +257,12 @@ def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str
       Kalshi partially filled before the cancel landed, this is the partial
       fill amount (may be less than `stake`). Used to keep exposure tracking
       consistent with reality so the per-window cap holds.
+
+    NOTE: The IOC + chase variant of this function (using expiration_ts=now+3)
+    caused stacked-resting-order bug on 2026-05-20 where Kalshi treated the
+    orders as 3-second resting limits rather than true IOC. Each retry placed
+    additional orders before the original ones expired/cancelled, leading to
+    duplicate fills. Reverted to original place→cancel-if-resting→retry-once.
     """
     current_market = market
     for attempt in range(2):
@@ -444,6 +456,14 @@ def run_dh_loop(
             g_misprice = strategy.sigmoid_mispricing(mispricing)
             target_no  = BASE_STAKE * f_btc * g_misprice * td_mult
             target_yes = 0.0
+
+        # Edge filter: skip the bet if expected post-buffer edge is below
+        # threshold. Real fees (~1.75c/contract on 50c markets) make sub-1c
+        # edges negative-EV. Sim shows +5-8pp ROI from this filter.
+        edge_cents = mispricing * 100
+        if edge_cents < MIN_EDGE_CENTS:
+            target_yes = 0.0
+            target_no  = 0.0
 
         if MODE == "dh-target":
             bet_yes = max(0.0, target_yes - yes_exposure)
@@ -926,6 +946,7 @@ def main():
         log.info("Time-decay sizing ENABLED | × 0.4 (T+4-T+6.5) | × 0.8 (T+7-T+9.5) | × 1.2 (T+10+)")
     else:
         log.info("Time-decay sizing disabled (flat sizing)")
+    log.info(f"Edge filter: skip bets with edge < {MIN_EDGE_CENTS:.1f}c (after {kalshi_trade.FILL_BUFFER_CENTS}c buffer)")
     if CAP_FRACTION_OF_BALANCE > 0:
         log.info(f"Per-window wagered cap: dynamic = balance × {CAP_FRACTION_OF_BALANCE:.2f} "
                  f"(fallback ${MAX_WINDOW_WAGERED:.2f} if balance fetch fails)")

@@ -10,10 +10,12 @@ from kalshi_auth import make_auth_headers
 BASE_URL = "https://api.elections.kalshi.com"
 SERIES   = "KXBTC15M"
 
-FILL_BUFFER_CENTS = 5  # absorbs ~300ms price movement between WS read and order landing
-# Previously 2 cents — got "rested and cancelled" too often on fast 15m BTC markets
-# where the top-of-book moves 3-5c between read and submit. 5c is a 4-5% drag on
-# a $0.50 contract but vastly improves fill rate.
+FILL_BUFFER_CENTS = 3  # absorbs ~300ms price movement between WS read and order landing
+# History: 2c → 5c (raised after rested-and-cancelled failures on fast markets)
+# → 3c (lowered 2026-05-22 after sim showed 5c buffer is the dominant friction
+# costing ~16pp ROI. 3c is a compromise: half the spread cost vs 5c, while still
+# absorbing typical 1-3c price movements between read and order landing). On
+# faster moves we now rely on the chase-retry path in place_order_with_retry.
 
 
 def get_open_market() -> dict | None:
@@ -47,6 +49,8 @@ def place_order(
     side: str,
     market: dict,
     stake_dollars: float,
+    extra_buffer_cents: int = 0,
+    ioc: bool = False,  # DISABLED: expiration_ts=now+3 caused stacked resting orders
 ) -> dict:
     """
     Place a limit buy order for Yes or No.
@@ -54,6 +58,13 @@ def place_order(
     side: "yes" or "no"
     market: the dict returned by get_open_market()
     stake_dollars: dollar amount to risk
+    extra_buffer_cents: additional cents added to FILL_BUFFER_CENTS, for chase
+        retries (widen the limit price each attempt).
+    ioc: if True, sets expiration_ts to "now" so the order becomes
+        Immediate-Or-Cancel — Kalshi fills what it can immediately at the
+        limit price and cancels any remainder instead of leaving it on the
+        book. Eliminates the "rested and cancelled" failure mode where price
+        moved between read and submit. Default True for entry/hedge orders.
 
     Pricing for immediate fill:
       Yes buy: yes_price = yes_ask (we cross the ask)
@@ -61,11 +72,12 @@ def place_order(
 
     count: fractional contracts supported (fractional_trading_enabled=true).
     """
+    total_buffer = FILL_BUFFER_CENTS + extra_buffer_cents
     if side == "yes":
-        yes_price_cents   = round(float(market["yes_ask_dollars"]) * 100) + FILL_BUFFER_CENTS
+        yes_price_cents   = round(float(market["yes_ask_dollars"]) * 100) + total_buffer
         cost_per_contract = yes_price_cents / 100.0
     else:
-        yes_price_cents   = round(float(market["yes_bid_dollars"]) * 100) - FILL_BUFFER_CENTS
+        yes_price_cents   = round(float(market["yes_bid_dollars"]) * 100) - total_buffer
         cost_per_contract = 1.0 - yes_price_cents / 100.0
 
     yes_price_cents = max(1, min(99, yes_price_cents))
@@ -81,6 +93,16 @@ def place_order(
         "yes_price":       yes_price_cents,
         "client_order_id": str(uuid.uuid4()),
     }
+    if ioc:
+        # IOC via near-future expiration_ts. Kalshi rejects values <= now
+        # ("EXPIRED_TIMESTAMP"), so we set it ~3 seconds out. In practice
+        # Kalshi's matching engine processes the order on receipt, so any
+        # immediate match happens before the timestamp is checked again;
+        # unmatched portions expire ~3s later instead of resting indefinitely.
+        # That's still vastly better than the old place→wait→cancel pattern
+        # (which took 1-5s manual round-trip).
+        import time as _time
+        body["expiration_ts"] = int(_time.time()) + 3
 
     headers = make_auth_headers(private_key, api_key_id, "POST", path)
     resp = requests.post(BASE_URL + path, json=body, headers=headers, timeout=10)

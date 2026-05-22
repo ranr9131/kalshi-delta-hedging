@@ -156,6 +156,8 @@ def simulate_market_dh(
     time_decay: bool = False,
     early_skip_minute: int = 0,
     early_skip_pct: float = 0.0,
+    slippage_cents: float = 0.0,
+    min_edge_cents: float = 0.0,
 ):
     """
     Returns (additive_row, target_row) or (None, None) if data is missing.
@@ -251,17 +253,37 @@ def simulate_market_dh(
 
         td_mult = time_decay_mult(minute) if time_decay else 1.0
 
+        # Live-realistic fill prices: we cross the spread AND pay a buffer.
+        # In sim, this was previously implicit (used candle open as fill).
+        # `slippage_cents` adds the extra cost we actually incur per contract.
+        slip = slippage_cents / 100.0
+        yes_fill = min(0.99, kalshi_yes + slip)
+        no_fill  = min(0.99, (1.0 - kalshi_yes) + slip)
+
         if direction_up:
-            mispricing_yes = fair - kalshi_yes
+            # Edge for YES bet = P(YES wins) - what we pay for a YES contract
+            mispricing_yes = fair - yes_fill
             mispricing_no  = 0.0
             g_yes = sigmoid_mispricing(mispricing_yes)
             computed_yes = STAKE * f * g_yes * td_mult
             computed_no  = 0.0
+            edge_cents   = (fair - yes_fill) * 100
         else:
-            mispricing_no  = kalshi_yes - (1.0 - fair)
+            # Edge for NO bet = P(NO wins) - what we pay for a NO contract.
+            # `fair` from the 2D table is direction-aware: when direction is
+            # down, fair = P(NO wins | regime). NO fill price = (1 - yes) + slip.
+            mispricing_no  = fair - no_fill
             g_no = sigmoid_mispricing(mispricing_no)
             computed_yes = 0.0
             computed_no  = STAKE * f * g_no * td_mult
+            edge_cents   = (fair - no_fill) * 100
+
+        # Edge filter: skip bets whose pre-fee edge is below threshold.
+        # Real Kalshi fees are roughly 1.75c per contract on a 50c contract,
+        # so a 1-2c min_edge_cents filter keeps only positive-EV bets.
+        if min_edge_cents > 0 and edge_cents < min_edge_cents:
+            computed_yes = 0.0
+            computed_no  = 0.0
 
         # ── Near-Cutoff Skip overlay ─────────────────────────────────────────
         # Late in the window, tiny moves are essentially noise. Skip the
@@ -283,27 +305,30 @@ def simulate_market_dh(
             computed_yes = 0.0
             computed_no  = 0.0
 
-        # Additive: bet the full computed amount each interval
+        # Additive: bet the full computed amount each interval.
+        # P&L tuples store the YES-equivalent fill price we actually paid.
+        # For NO bets, we store (1 - no_fill) as the implied yes-side price
+        # so the no_pnl() helper computes correctly.
         if computed_yes >= MIN_BET:
-            add_yes_bets.append((computed_yes, kalshi_yes))
+            add_yes_bets.append((computed_yes, yes_fill))
             add_yes_exp += computed_yes
-            add_yes_contracts += computed_yes / kalshi_yes
+            add_yes_contracts += computed_yes / yes_fill
         if computed_no >= MIN_BET:
-            add_no_bets.append((computed_no, kalshi_yes))
+            add_no_bets.append((computed_no, 1.0 - no_fill))
             add_no_exp += computed_no
-            add_no_contracts += computed_no / kalshi_no
+            add_no_contracts += computed_no / no_fill
 
         # Target: only bet the gap to target
         gap_yes = max(0.0, computed_yes - tgt_yes_exp)
         gap_no  = max(0.0, computed_no  - tgt_no_exp)
         if gap_yes >= MIN_BET:
-            tgt_yes_bets.append((gap_yes, kalshi_yes))
+            tgt_yes_bets.append((gap_yes, yes_fill))
             tgt_yes_exp += gap_yes
-            tgt_yes_contracts += gap_yes / kalshi_yes
+            tgt_yes_contracts += gap_yes / yes_fill
         if gap_no >= MIN_BET:
-            tgt_no_bets.append((gap_no, kalshi_yes))
+            tgt_no_bets.append((gap_no, 1.0 - no_fill))
             tgt_no_exp += gap_no
-            tgt_no_contracts += gap_no / kalshi_no
+            tgt_no_contracts += gap_no / no_fill
 
         # ── Reversal-Hedge overlay ───────────────────────────────────────────
         # If BTC direction is opposite the side we have meaningful exposure
@@ -314,30 +339,30 @@ def simulate_market_dh(
         if rh_minute is not None and minute >= rh_minute:
             if direction_up:
                 if add_no_exp >= rh_min_trigger and add_no_contracts > 0:
-                    hedge = add_no_contracts * kalshi_yes
+                    hedge = add_no_contracts * yes_fill
                     if hedge >= MIN_BET:
-                        add_yes_bets.append((hedge, kalshi_yes))
+                        add_yes_bets.append((hedge, yes_fill))
                         add_yes_exp       += hedge
-                        add_yes_contracts += hedge / kalshi_yes
+                        add_yes_contracts += hedge / yes_fill
                 if tgt_no_exp >= rh_min_trigger and tgt_no_contracts > 0:
-                    hedge = tgt_no_contracts * kalshi_yes
+                    hedge = tgt_no_contracts * yes_fill
                     if hedge >= MIN_BET:
-                        tgt_yes_bets.append((hedge, kalshi_yes))
+                        tgt_yes_bets.append((hedge, yes_fill))
                         tgt_yes_exp       += hedge
-                        tgt_yes_contracts += hedge / kalshi_yes
+                        tgt_yes_contracts += hedge / yes_fill
             else:
                 if add_yes_exp >= rh_min_trigger and add_yes_contracts > 0:
-                    hedge = add_yes_contracts * kalshi_no
+                    hedge = add_yes_contracts * no_fill
                     if hedge >= MIN_BET:
-                        add_no_bets.append((hedge, kalshi_yes))
+                        add_no_bets.append((hedge, 1.0 - no_fill))
                         add_no_exp       += hedge
-                        add_no_contracts += hedge / kalshi_no
+                        add_no_contracts += hedge / no_fill
                 if tgt_yes_exp >= rh_min_trigger and tgt_yes_contracts > 0:
-                    hedge = tgt_yes_contracts * kalshi_no
+                    hedge = tgt_yes_contracts * no_fill
                     if hedge >= MIN_BET:
-                        tgt_no_bets.append((hedge, kalshi_yes))
+                        tgt_no_bets.append((hedge, 1.0 - no_fill))
                         tgt_no_exp       += hedge
-                        tgt_no_contracts += hedge / kalshi_no
+                        tgt_no_contracts += hedge / no_fill
 
     # ── P&L ──────────────────────────────────────────────────────────────────
     def build_row(yes_bets, no_bets, yes_exp, no_exp):
@@ -431,6 +456,18 @@ def run():
              "|move| < THRESHOLD_PCT%%. Avoids noise-trap T+4 entries on "
              "near-zero moves that reverse. Example: --early-skip 4 0.025"
     )
+    parser.add_argument(
+        "--slippage-cents", type=float, default=0.0,
+        help="Cents added to fill price per contract to model spread cost + "
+             "buffer that live execution pays. Live trader uses 5c buffer "
+             "AND crosses the spread (additional ~2-5c), so realistic value "
+             "is 5-10c. Default 0 matches the old (overly optimistic) sim."
+    )
+    parser.add_argument(
+        "--min-edge-cents", type=float, default=0.0,
+        help="Skip bets whose post-slippage edge (fair - fill) is below this. "
+             "Filters low-EV trades that get eaten by fees. Try 1-3c."
+    )
     args = parser.parse_args()
 
     start_min, end_min = map(int, args.minutes.split("-"))
@@ -453,6 +490,9 @@ def run():
     if args.early_skip is not None:
         early_skip_minute = int(args.early_skip[0])
         early_skip_pct    = float(args.early_skip[1])
+
+    slippage_cents = float(args.slippage_cents)
+    min_edge_cents = float(args.min_edge_cents)
 
     if use_2d:
         csv_2d = os.path.join(LOGS_DIR, "minute_analysis_2d.csv")
@@ -478,6 +518,10 @@ def run():
         print(f"Time-decay sizing: × 0.4 (T+4-T+6), × 0.8 (T+7-T+9), × 1.2 (T+10+)")
     if early_skip_minute > 0:
         print(f"Early-window skip:  minute <= {early_skip_minute} and |move| < {early_skip_pct}%")
+    if slippage_cents > 0:
+        print(f"Slippage modeled:   +{slippage_cents}c per contract on fill price")
+    if min_edge_cents > 0:
+        print(f"Edge filter:        skip bets with edge < {min_edge_cents}c")
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -515,6 +559,8 @@ def run():
             time_decay=time_decay,
             early_skip_minute=early_skip_minute,
             early_skip_pct=early_skip_pct,
+            slippage_cents=slippage_cents,
+            min_edge_cents=min_edge_cents,
         )
         if add_row is None:
             skipped += 1
@@ -546,7 +592,9 @@ def run():
     rh_part    = f"_rh{rh_minute}" if rh_minute is not None else ""
     td_part    = "_td" if time_decay else ""
     es_part    = f"_es{early_skip_minute}-{str(early_skip_pct).replace('.','p')}" if early_skip_minute > 0 else ""
-    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part + td_part + es_part
+    sl_part    = f"_sl{int(slippage_cents)}" if slippage_cents > 0 else ""
+    me_part    = f"_me{str(min_edge_cents).replace('.','p')}" if min_edge_cents > 0 else ""
+    suffix     = range_part + fp_part + dz_part + ncs_part + rh_part + td_part + es_part + sl_part + me_part
     write_csv(add_results, f"simulation_results_dh_additive{suffix}.csv")
     write_csv(tgt_results, f"simulation_results_dh_target{suffix}.csv")
 
