@@ -1,0 +1,17 @@
+[Unit]
+Description=NN multi-bet live shadow
+After=network-online.target kalshi-trader.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/kalshi-delta-hedging/nn
+ExecStart=/usr/bin/python3 /root/kalshi-delta-hedging/nn/live_shadow_multi.py --interval 30
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/root/kalshi-delta-hedging/nn/shadow_runtime.log
+StandardError=append:/root/kalshi-delta-hedging/nn/shadow_runtime.log
+
+[Install]
+WantedBy=multi-user.target

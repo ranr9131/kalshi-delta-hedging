@@ -73,6 +73,33 @@ def run():
         return
     print(f"Loaded {len(markets)} settled markets.")
 
+    # RECENT_DAYS filter — if set, keep only markets within the last N days
+    # (chronologically by open_time). Lets us rebuild the fair-price table on
+    # a recent rolling window without re-fetching the cache.
+    recent_days_env = os.environ.get("RECENT_DAYS", "").strip()
+    if recent_days_env:
+        recent_days = int(recent_days_env)
+        # Find the latest open_time in the cache
+        max_ts = 0
+        for m in markets:
+            try:
+                dt = datetime.fromisoformat(m["open_time"].replace("Z", "+00:00"))
+                max_ts = max(max_ts, int(dt.timestamp()))
+            except Exception:
+                pass
+        cutoff_ts = max_ts - recent_days * 86400
+        filtered = []
+        for m in markets:
+            try:
+                dt = datetime.fromisoformat(m["open_time"].replace("Z", "+00:00"))
+                if int(dt.timestamp()) >= cutoff_ts:
+                    filtered.append(m)
+            except Exception:
+                pass
+        print(f"RECENT_DAYS={recent_days}: filtered to {len(filtered)} markets "
+              f"(cutoff: {datetime.fromtimestamp(cutoff_ts, tz=timezone.utc).date()})")
+        markets = filtered
+
     timestamps = []
     for m in markets:
         try:

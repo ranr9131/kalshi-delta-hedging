@@ -11,12 +11,14 @@ Run with PAPER_MODE=true to simulate without placing real orders.
 
 import csv
 import logging
+import math
 import os
 import signal
 import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
 from dotenv import dotenv_values
 
 import btc_feed
@@ -26,8 +28,11 @@ import kalshi_trade
 import strategy
 
 # ── Config ────────────────────────────────────────────────────────────────────
+# .env supplies credentials + defaults. os.environ (e.g. from systemd
+# Environment= directives) takes precedence so a separate systemd unit can
+# override PAPER_MODE, BASE_STAKE, etc. without touching .env.
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-env = dotenv_values(_env_path)
+env = {**dotenv_values(_env_path), **os.environ}
 
 API_KEY_ID = env.get("KALSHI_API_KEY_ID", "")
 PAPER_MODE = env.get("PAPER_MODE", "true").lower() == "true"
@@ -54,6 +59,18 @@ CAP_FRACTION_OF_BALANCE = float(env.get("CAP_FRACTION_OF_BALANCE", "0.0"))
 _rh_raw  = env.get("RH_MINUTE", "").strip()
 RH_MINUTE: float | None = float(_rh_raw) if _rh_raw and float(_rh_raw) > 0 else None
 RH_TRIGGER = float(env.get("RH_TRIGGER", "10.0"))
+
+# Per-window leg cap. 0 = disabled. See .env for the data motivating this cap.
+MAX_LEGS_PER_WINDOW = int(env.get("MAX_LEGS_PER_WINDOW", "0"))
+
+# Side filter — restrict bot to one direction. Live data showed NO bets ran
+# -8.2% ROI on 95 windows vs YES bets at +1.6% on 78 windows. Suggests the
+# fair-price table is miscalibrated on the NO side. Set "yes_only", "no_only",
+# or empty (default) to allow both.
+SIDE_FILTER = env.get("SIDE_FILTER", "").strip().lower()
+if SIDE_FILTER not in ("", "yes_only", "no_only"):
+    print(f"ERROR: SIDE_FILTER must be 'yes_only', 'no_only', or empty. Got: {SIDE_FILTER!r}")
+    sys.exit(1)
 
 # ACTIVE_HOURS: comma-separated UTC hours to trade, e.g. "13,14,18,22".
 # Empty or unset = trade all 24 hours.
@@ -130,6 +147,88 @@ TIME_DECAY = env.get("TIME_DECAY", "true").strip().lower() not in ("false", "0",
 # with edge < 1c is destined to be unprofitable after fees. The sim shows
 # adding this filter recovers +5-8pp ROI vs no filter. Set to 0 to disable.
 MIN_EDGE_CENTS = float(env.get("MIN_EDGE_CENTS", "1.0"))
+
+# ── NN fair-price source ──────────────────────────────────────────────────────
+# When FAIR_PRICE_SOURCE=nn, the trader replaces the 2D-table fair-price lookup
+# with NN inference using the multi-minute model. Other strategy logic (sizing,
+# RH, leg cap, edge filter) stays identical. NN_MIN_MINUTE constrains the
+# trader to only place bets at or after this minute (default 10 — early minutes
+# have low ROI per backtest sweep). DAILY_LOSS_CAP auto-pauses trading after a
+# bad day (0 = disabled).
+FAIR_PRICE_SOURCE = env.get("FAIR_PRICE_SOURCE", "2d").strip().lower()
+NN_CHECKPOINT     = env.get("NN_CHECKPOINT", "../nn/checkpoints/best_multi.pt")
+NN_MIN_MINUTE     = int(env.get("NN_MIN_MINUTE", "10"))
+NN_MAX_MINUTE     = int(env.get("NN_MAX_MINUTE", "13"))
+DAILY_LOSS_CAP    = float(env.get("DAILY_LOSS_CAP", "0"))   # dollars; 0 = off
+
+_NN_MODEL = None
+_NN_MEAN  = None
+_NN_STD   = None
+_NN_FEATURES_N = 7
+_NN_WINDOW_M   = 15
+
+
+def _load_nn():
+    """Lazy-load the NN model. Called once on startup if NN mode is active."""
+    global _NN_MODEL, _NN_MEAN, _NN_STD
+    if _NN_MODEL is not None:
+        return
+    import torch as _torch
+    _here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(_here, "..", "nn"))
+    from model import TSWinPredictor          # type: ignore
+    ckpt_path = NN_CHECKPOINT
+    if not os.path.isabs(ckpt_path):
+        ckpt_path = os.path.normpath(os.path.join(_here, ckpt_path))
+    ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    _NN_MODEL = TSWinPredictor(n_features=ckpt["n_features"])
+    _NN_MODEL.load_state_dict(ckpt["model_state"])
+    _NN_MODEL.eval()
+    _NN_MEAN = np.array(ckpt["feature_mean"], dtype=np.float32)
+    _NN_STD  = np.array(ckpt["feature_std"],  dtype=np.float32)
+    return ckpt_path
+
+
+def _build_nn_features(window_snapshots: dict, btc_t0: float, kalshi_t0: float,
+                       hour: int, current_minute: int):
+    """Return (X[15,7] float32, mask[15] bool) with data through current_minute."""
+    X = np.zeros((_NN_WINDOW_M, _NN_FEATURES_N), dtype=np.float32)
+    mask = np.zeros(_NN_WINDOW_M, dtype=bool)
+    hour_sin = math.sin(2 * math.pi * hour / 24)
+    hour_cos = math.cos(2 * math.pi * hour / 24)
+    last_btc = btc_t0
+    for m in range(_NN_WINDOW_M):
+        if m > current_minute:
+            break
+        snap = window_snapshots.get(m)
+        if snap is None:
+            continue
+        btc = snap.get("btc")
+        kalshi = snap.get("kalshi_yes")
+        if btc is None or kalshi is None or not (0.01 < kalshi < 0.99):
+            continue
+        X[m, 0] = (btc / btc_t0) - 1.0
+        X[m, 1] = (btc / last_btc) - 1.0 if last_btc else 0.0
+        last_btc = btc
+        X[m, 2] = kalshi
+        X[m, 3] = kalshi - kalshi_t0
+        X[m, 4] = m / float(_NN_WINDOW_M - 1)
+        X[m, 5] = hour_sin
+        X[m, 6] = hour_cos
+        mask[m] = True
+    return X, mask
+
+
+def _nn_p_yes(window_snapshots, btc_t0, kalshi_t0, hour, current_minute):
+    """Run NN to get P(YES wins) given data through current_minute."""
+    import torch as _torch
+    X, mask = _build_nn_features(window_snapshots, btc_t0, kalshi_t0, hour, current_minute)
+    if mask.sum() == 0:
+        return 0.5
+    Xn = ((X - _NN_MEAN) / _NN_STD).astype(np.float32)
+    with _torch.no_grad():
+        logit = _NN_MODEL(_torch.from_numpy(Xn[None]), _torch.from_numpy(mask[None]))
+        return float(_torch.sigmoid(logit).item())
 
 
 def time_decay_mult(t_min: float) -> float:
@@ -219,6 +318,8 @@ signal.signal(signal.SIGINT, _handle_sigint)
 
 # ── Session P&L tracker ───────────────────────────────────────────────────────
 _cumulative_pnl: float = 0.0
+_daily_pnl: dict = {}      # {UTC date: pnl} — used for DAILY_LOSS_CAP gate
+_daily_pause: bool = False  # set True after cap hit; cleared at next UTC day
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -382,6 +483,46 @@ def run_dh_loop(
     yes_contracts = 0.0
     no_contracts  = 0.0
     n_hedges      = 0
+
+    # Daily loss cap gate — return immediately if paused for the day.
+    if _daily_pause:
+        log.info("DH loop skipped: daily loss cap active.")
+        return yes_bets, no_bets, yes_exposure, no_exposure
+
+    # NN-mode state: per-minute snapshots accumulated across the window.
+    # window_snapshots[m] = {"btc": float, "kalshi_yes": float} where m is the
+    # integer minute since window open. Used to build the feature tensor for
+    # NN inference at each decision tick.
+    window_snapshots: dict[int, dict] = {}
+    kalshi_t0_local: float | None = None
+    if FAIR_PRICE_SOURCE == "nn":
+        # Prefill T+0..T+3 by fetching historical Kalshi candles + Coinbase BTC
+        # so the NN sees the full history at the first decision tick (T+10).
+        try:
+            # kalshi_client and btc_data live in the parent directory, not live/
+            _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _parent not in sys.path:
+                sys.path.insert(0, _parent)
+            import kalshi_client as _kc
+            import btc_data as _bd
+            open_iso  = window_ts.isoformat()
+            close_iso = (window_ts + timedelta(minutes=WINDOW_MINUTES)).isoformat()
+            _candles = _kc.fetch_candlesticks(ticker, open_iso, close_iso)
+            t0_unix = int(window_ts.timestamp())
+            _btc_prices = _bd.fetch_btc_prices(t0_unix - 60, t0_unix + 4 * 60)
+            for _m in range(0, NN_MIN_MINUTE):
+                _ts = t0_unix + _m * 60
+                _btc = _bd.lookup(_btc_prices, _ts)
+                _ky  = _kc.get_yes_price_at(_candles, _ts) if _candles else None
+                if _m == 0:
+                    if _btc is None: _btc = btc_t0   # always have btc_t0 from caller
+                    if _ky is not None:
+                        kalshi_t0_local = _ky
+                if _btc is not None and _ky is not None:
+                    window_snapshots[_m] = {"btc": _btc, "kalshi_yes": _ky}
+            log.info(f"NN prefill: {len(window_snapshots)} pre-decision snapshots loaded")
+        except Exception as _e:
+            log.warning(f"NN prefill failed: {_e}; will use partial features")
     # Track WHICH contracts have already been hedged. Without this, the RH
     # block re-fires every tick where conditions hold (direction still
     # opposite the wrong-side exposure that hasn't changed). Tracking the
@@ -442,7 +583,23 @@ def run_dh_loop(
         f_btc        = strategy.sigmoid_btc(abs_pct_move)
         direction_up = btc_now > btc_t0
 
-        fair = get_fair_price_2d(minute_idx, abs_pct_move)
+        # NN mode: skip ticks outside the configured minute range; capture the
+        # per-minute snapshot so subsequent ticks have full history.
+        if FAIR_PRICE_SOURCE == "nn":
+            if minute_idx not in window_snapshots:
+                # First time we see this integer minute — store snapshot.
+                window_snapshots[minute_idx] = {"btc": btc_now, "kalshi_yes": kalshi_mid}
+                if minute_idx == 0 and kalshi_t0_local is None:
+                    kalshi_t0_local = kalshi_mid
+            if minute_idx < NN_MIN_MINUTE or minute_idx > NN_MAX_MINUTE:
+                log.info(f"  -> NN: T+{t_min:.1f} outside [{NN_MIN_MINUTE},{NN_MAX_MINUTE}], skip decision")
+                continue
+            kt0 = kalshi_t0_local if kalshi_t0_local is not None else kalshi_mid
+            p_yes = _nn_p_yes(window_snapshots, btc_t0, kt0, window_ts.hour, minute_idx)
+            # fair = P(directional side wins)
+            fair = p_yes if direction_up else (1.0 - p_yes)
+        else:
+            fair = get_fair_price_2d(minute_idx, abs_pct_move)
 
         buf = kalshi_trade.FILL_BUFFER_CENTS / 100
         td_mult = time_decay_mult(t_min) if TIME_DECAY else 1.0
@@ -464,6 +621,12 @@ def run_dh_loop(
         if edge_cents < MIN_EDGE_CENTS:
             target_yes = 0.0
             target_no  = 0.0
+
+        # Side filter — drop disallowed direction's target.
+        if SIDE_FILTER == "yes_only":
+            target_no  = 0.0
+        elif SIDE_FILTER == "no_only":
+            target_yes = 0.0
 
         if MODE == "dh-target":
             bet_yes = max(0.0, target_yes - yes_exposure)
@@ -522,6 +685,12 @@ def run_dh_loop(
             "f_btc":              round(f_btc, 6),
             "g_misprice":         round(g_misprice, 6),
         }
+
+        # Per-window leg cap: skip remaining entry/hedge legs once at limit.
+        if MAX_LEGS_PER_WINDOW > 0 and (len(yes_bets) + len(no_bets)) >= MAX_LEGS_PER_WINDOW:
+            log.info(f"  -> SKIP: leg cap {MAX_LEGS_PER_WINDOW} reached "
+                     f"({len(yes_bets)}Y/{len(no_bets)}N)")
+            continue
 
         if bet_yes >= MIN_BET:
             fill  = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
@@ -711,10 +880,26 @@ def run_dh_loop(
 # ── Window execution ──────────────────────────────────────────────────────────
 
 def run_window():
-    global _cumulative_pnl
+    global _cumulative_pnl, _daily_pause
 
     now        = datetime.now(timezone.utc)
     window_ts  = window_boundary(now)
+
+    # ── Daily loss cap gate ──
+    today = window_ts.date()
+    today_pnl = _daily_pnl.get(today, 0.0)
+    if DAILY_LOSS_CAP > 0 and today_pnl <= -DAILY_LOSS_CAP:
+        if not _daily_pause:
+            log.error(f"DAILY LOSS CAP HIT: today P&L=${today_pnl:+.2f} <= -${DAILY_LOSS_CAP:.2f}. "
+                      f"Pausing all new bets until next UTC day.")
+            _daily_pause = True
+        # Still wait out the window to log it but don't bet
+    else:
+        if _daily_pause:
+            # New day with no cap hit yet — clear pause
+            log.info(f"Daily pause cleared (new UTC day {today}, prior was {(today - timedelta(days=1))})")
+            _daily_pause = False
+
     elapsed    = (now - window_ts).total_seconds()
     sleep_secs = max(0.0, DECISION_OFFSET_SECS - elapsed)
 
@@ -888,6 +1073,8 @@ def run_window():
     total_pnl     = yes_pnl_total + no_pnl_total
     total_wagered = yes_exp + no_exp
     _cumulative_pnl += total_pnl
+    _today = window_ts.date()
+    _daily_pnl[_today] = _daily_pnl.get(_today, 0.0) + total_pnl
     outcome = "net_win" if total_pnl >= 0 else "net_loss"
 
     log.info(
@@ -942,11 +1129,30 @@ def main():
         log.info(f"Reversal-hedge ENABLED | rh_minute=T+{RH_MINUTE} | rh_trigger=${RH_TRIGGER:.2f}")
     else:
         log.info("Reversal-hedge disabled (baseline DH)")
+    if MAX_LEGS_PER_WINDOW > 0:
+        log.info(f"Per-window leg cap: {MAX_LEGS_PER_WINDOW}")
+    if SIDE_FILTER:
+        log.info(f"Side filter: {SIDE_FILTER.upper()} (other side will be skipped)")
     if TIME_DECAY:
         log.info("Time-decay sizing ENABLED | × 0.4 (T+4-T+6.5) | × 0.8 (T+7-T+9.5) | × 1.2 (T+10+)")
     else:
         log.info("Time-decay sizing disabled (flat sizing)")
     log.info(f"Edge filter: skip bets with edge < {MIN_EDGE_CENTS:.1f}c (after {kalshi_trade.FILL_BUFFER_CENTS}c buffer)")
+
+    # NN mode init — load model & log config.
+    if FAIR_PRICE_SOURCE == "nn":
+        try:
+            ckpt_path = _load_nn()
+            log.info(f"NN fair-price source ENABLED | checkpoint={ckpt_path}")
+            log.info(f"NN minute range: T+{NN_MIN_MINUTE}..T+{NN_MAX_MINUTE}")
+        except Exception as e:
+            log.error(f"NN load failed: {e}. Falling back to 2D table.")
+            globals()["FAIR_PRICE_SOURCE"] = "2d"
+    else:
+        log.info("Fair-price source: 2D empirical table")
+
+    if DAILY_LOSS_CAP > 0:
+        log.info(f"Daily loss cap: -${DAILY_LOSS_CAP:.2f} (auto-pause if exceeded)")
     if CAP_FRACTION_OF_BALANCE > 0:
         log.info(f"Per-window wagered cap: dynamic = balance × {CAP_FRACTION_OF_BALANCE:.2f} "
                  f"(fallback ${MAX_WINDOW_WAGERED:.2f} if balance fetch fails)")

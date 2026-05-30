@@ -158,6 +158,8 @@ def simulate_market_dh(
     early_skip_pct: float = 0.0,
     slippage_cents: float = 0.0,
     min_edge_cents: float = 0.0,
+    max_hedge_fill: float = 1.0,
+    max_legs: int = 0,
 ):
     """
     Returns (additive_row, target_row) or (None, None) if data is missing.
@@ -305,15 +307,23 @@ def simulate_market_dh(
             computed_yes = 0.0
             computed_no  = 0.0
 
+        # Per-window leg cap helpers (match live trader behavior).
+        # Live's MAX_LEGS_PER_WINDOW counts ALL legs (entries + hedges, both
+        # sides combined). When 0, the cap is disabled.
+        def _add_at_cap():
+            return max_legs > 0 and (len(add_yes_bets) + len(add_no_bets)) >= max_legs
+        def _tgt_at_cap():
+            return max_legs > 0 and (len(tgt_yes_bets) + len(tgt_no_bets)) >= max_legs
+
         # Additive: bet the full computed amount each interval.
         # P&L tuples store the YES-equivalent fill price we actually paid.
         # For NO bets, we store (1 - no_fill) as the implied yes-side price
         # so the no_pnl() helper computes correctly.
-        if computed_yes >= MIN_BET:
+        if computed_yes >= MIN_BET and not _add_at_cap():
             add_yes_bets.append((computed_yes, yes_fill))
             add_yes_exp += computed_yes
             add_yes_contracts += computed_yes / yes_fill
-        if computed_no >= MIN_BET:
+        if computed_no >= MIN_BET and not _add_at_cap():
             add_no_bets.append((computed_no, 1.0 - no_fill))
             add_no_exp += computed_no
             add_no_contracts += computed_no / no_fill
@@ -321,11 +331,11 @@ def simulate_market_dh(
         # Target: only bet the gap to target
         gap_yes = max(0.0, computed_yes - tgt_yes_exp)
         gap_no  = max(0.0, computed_no  - tgt_no_exp)
-        if gap_yes >= MIN_BET:
+        if gap_yes >= MIN_BET and not _tgt_at_cap():
             tgt_yes_bets.append((gap_yes, yes_fill))
             tgt_yes_exp += gap_yes
             tgt_yes_contracts += gap_yes / yes_fill
-        if gap_no >= MIN_BET:
+        if gap_no >= MIN_BET and not _tgt_at_cap():
             tgt_no_bets.append((gap_no, 1.0 - no_fill))
             tgt_no_exp += gap_no
             tgt_no_contracts += gap_no / no_fill
@@ -337,29 +347,33 @@ def simulate_market_dh(
         # way, so this caps loss at roughly (orig_wrong_stake + hedge_stake
         # − contracts_owned). Applied separately to additive and target.
         if rh_minute is not None and minute >= rh_minute:
+            # Live trader skips RH hedges when fill > MAX_HEDGE_FILL_PRICE
+            # (default 0.80 live). Replicated here when max_hedge_fill < 1.0.
             if direction_up:
-                if add_no_exp >= rh_min_trigger and add_no_contracts > 0:
+                hedge_ok = yes_fill <= max_hedge_fill
+                if hedge_ok and add_no_exp >= rh_min_trigger and add_no_contracts > 0:
                     hedge = add_no_contracts * yes_fill
-                    if hedge >= MIN_BET:
+                    if hedge >= MIN_BET and not _add_at_cap():
                         add_yes_bets.append((hedge, yes_fill))
                         add_yes_exp       += hedge
                         add_yes_contracts += hedge / yes_fill
-                if tgt_no_exp >= rh_min_trigger and tgt_no_contracts > 0:
+                if hedge_ok and tgt_no_exp >= rh_min_trigger and tgt_no_contracts > 0:
                     hedge = tgt_no_contracts * yes_fill
-                    if hedge >= MIN_BET:
+                    if hedge >= MIN_BET and not _tgt_at_cap():
                         tgt_yes_bets.append((hedge, yes_fill))
                         tgt_yes_exp       += hedge
                         tgt_yes_contracts += hedge / yes_fill
             else:
-                if add_yes_exp >= rh_min_trigger and add_yes_contracts > 0:
+                hedge_ok = no_fill <= max_hedge_fill
+                if hedge_ok and add_yes_exp >= rh_min_trigger and add_yes_contracts > 0:
                     hedge = add_yes_contracts * no_fill
-                    if hedge >= MIN_BET:
+                    if hedge >= MIN_BET and not _add_at_cap():
                         add_no_bets.append((hedge, 1.0 - no_fill))
                         add_no_exp       += hedge
                         add_no_contracts += hedge / no_fill
-                if tgt_yes_exp >= rh_min_trigger and tgt_yes_contracts > 0:
+                if hedge_ok and tgt_yes_exp >= rh_min_trigger and tgt_yes_contracts > 0:
                     hedge = tgt_yes_contracts * no_fill
-                    if hedge >= MIN_BET:
+                    if hedge >= MIN_BET and not _tgt_at_cap():
                         tgt_no_bets.append((hedge, 1.0 - no_fill))
                         tgt_no_exp       += hedge
                         tgt_no_contracts += hedge / no_fill
@@ -468,6 +482,16 @@ def run():
         help="Skip bets whose post-slippage edge (fair - fill) is below this. "
              "Filters low-EV trades that get eaten by fees. Try 1-3c."
     )
+    parser.add_argument(
+        "--max-hedge-fill", type=float, default=1.0,
+        help="Skip RH hedges whose fill price exceeds this (matches live "
+             "MAX_HEDGE_FILL_PRICE = 0.80). Default 1.0 = no cap."
+    )
+    parser.add_argument(
+        "--max-legs", type=int, default=0,
+        help="Per-window cap on total legs (entries + hedges, both sides) — "
+             "matches live MAX_LEGS_PER_WINDOW. 0 = disabled."
+    )
     args = parser.parse_args()
 
     start_min, end_min = map(int, args.minutes.split("-"))
@@ -493,6 +517,8 @@ def run():
 
     slippage_cents = float(args.slippage_cents)
     min_edge_cents = float(args.min_edge_cents)
+    max_hedge_fill = float(args.max_hedge_fill)
+    max_legs       = int(args.max_legs)
 
     if use_2d:
         csv_2d = os.path.join(LOGS_DIR, "minute_analysis_2d.csv")
@@ -522,6 +548,10 @@ def run():
         print(f"Slippage modeled:   +{slippage_cents}c per contract on fill price")
     if min_edge_cents > 0:
         print(f"Edge filter:        skip bets with edge < {min_edge_cents}c")
+    if max_hedge_fill < 1.0:
+        print(f"Max hedge fill:     skip RH hedges with fill > {max_hedge_fill:.2f}")
+    if max_legs > 0:
+        print(f"Per-window leg cap: {max_legs} (total legs, entries + hedges)")
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -561,6 +591,8 @@ def run():
             early_skip_pct=early_skip_pct,
             slippage_cents=slippage_cents,
             min_edge_cents=min_edge_cents,
+            max_hedge_fill=max_hedge_fill,
+            max_legs=max_legs,
         )
         if add_row is None:
             skipped += 1

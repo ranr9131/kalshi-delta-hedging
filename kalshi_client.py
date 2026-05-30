@@ -108,14 +108,30 @@ def fetch_candlesticks(ticker, open_time_iso, close_time_iso):
     for c in raw:
         price = c.get("price", {})
         # API uses open_dollars/close_dollars suffix
-        yes_open = price.get("open_dollars") or price.get("open")
+        yes_open  = price.get("open_dollars")  or price.get("open")
         yes_close = price.get("close_dollars") or price.get("close")
         if yes_open is None or yes_close is None:
             continue
+        # Optional richer fields used by the NN dataset builder. Existing
+        # consumers (trader, sim) read only yes_open / yes_close.
+        yes_high = price.get("high_dollars") or price.get("high") or yes_close
+        yes_low  = price.get("low_dollars")  or price.get("low")  or yes_close
+        yes_mean = price.get("mean_dollars") or price.get("mean") or yes_close
+        bid = c.get("yes_bid", {}) or {}
+        ask = c.get("yes_ask", {}) or {}
+        bid_close = bid.get("close_dollars") or bid.get("close") or yes_close
+        ask_close = ask.get("close_dollars") or ask.get("close") or yes_close
+        volume = c.get("volume_fp") or c.get("volume") or 0
         result.append({
             "ts": c["end_period_ts"],
-            "yes_open": float(yes_open),
+            "yes_open":  float(yes_open),
             "yes_close": float(yes_close),
+            "yes_high":  float(yes_high),
+            "yes_low":   float(yes_low),
+            "yes_mean":  float(yes_mean),
+            "yes_bid_close": float(bid_close),
+            "yes_ask_close": float(ask_close),
+            "volume":    float(volume),
         })
 
     result.sort(key=lambda x: x["ts"])

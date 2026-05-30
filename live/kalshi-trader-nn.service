@@ -1,0 +1,36 @@
+[Unit]
+Description=Kalshi BTC trader (NN fair-price source, paper by default)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/kalshi-delta-hedging/live
+# NN-specific config via systemd env. The trader's .env still supplies KALSHI
+# credentials. PAPER_MODE=true here ensures we never go LIVE without manual
+# action — override at runtime via `systemctl edit kalshi-trader-nn.service`
+# once paper-mode performance is verified.
+Environment=PAPER_MODE=true
+Environment=FAIR_PRICE_SOURCE=nn
+Environment=BASE_STAKE=10.0
+Environment=MIN_EDGE_CENTS=10
+Environment=MAX_LEGS_PER_WINDOW=2
+Environment=RH_MINUTE=10
+Environment=RH_TRIGGER=1.0
+Environment=TIME_DECAY=true
+Environment=MAX_WINDOW_WAGERED=30
+Environment=CAP_FRACTION_OF_BALANCE=0
+Environment=DAILY_LOSS_CAP=50
+Environment=NN_MIN_MINUTE=10
+Environment=NN_MAX_MINUTE=13
+Environment=SIDE_FILTER=
+Environment=ACTIVE_HOURS=
+ExecStart=/usr/bin/python3 /root/kalshi-delta-hedging/live/trader.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/root/kalshi-delta-hedging/live/trader-nn.log
+StandardError=append:/root/kalshi-delta-hedging/live/trader-nn.log
+
+[Install]
+WantedBy=multi-user.target
