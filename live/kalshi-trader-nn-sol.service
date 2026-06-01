@@ -1,5 +1,5 @@
 [Unit]
-Description=Kalshi BTC trader (NN v2_small, LIVE, raw config)
+Description=Kalshi SOL trader (NN v2_small SOL, LIVE, raw config)
 After=network-online.target
 Wants=network-online.target
 
@@ -8,9 +8,10 @@ Type=simple
 User=root
 WorkingDirectory=/root/kalshi-delta-hedging/live
 Environment=PAPER_MODE=false
-Environment=ASSET=BTC
+Environment=ASSET=SOL
+Environment=KALSHI_SERIES=KXSOL15M
 Environment=FAIR_PRICE_SOURCE=nn
-Environment=NN_CHECKPOINT=../nn/checkpoints/best_v2_small.pt
+Environment=NN_CHECKPOINT=../nn/checkpoints/best_v2_small_sol.pt
 Environment=BASE_STAKE=10.0
 Environment=MIN_EDGE_CENTS=3
 Environment=MIN_BET_PRICE=0
@@ -29,8 +30,8 @@ Environment=INVERT=false
 ExecStart=/usr/bin/python3 /root/kalshi-delta-hedging/live/trader.py
 Restart=on-failure
 RestartSec=10
-StandardOutput=append:/root/kalshi-delta-hedging/live/trader-nn.log
-StandardError=append:/root/kalshi-delta-hedging/live/trader-nn.log
+StandardOutput=append:/root/kalshi-delta-hedging/live/trader-nn-sol.log
+StandardError=append:/root/kalshi-delta-hedging/live/trader-nn-sol.log
 
 [Install]
 WantedBy=multi-user.target

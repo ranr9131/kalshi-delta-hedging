@@ -1,0 +1,35 @@
+[Unit]
+Description=Kalshi shadow Arm B — INVERTED signal (PAPER, ETH)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/kalshi-delta-hedging/live
+ExecStart=/usr/bin/python3 -u /root/kalshi-delta-hedging/live/trader.py
+Restart=on-failure
+RestartSec=10
+Environment=PAPER_MODE=true
+Environment=ASSET=ETH
+Environment=KALSHI_SERIES=KXETH15M
+Environment=FAIR_PRICE_SOURCE=nn
+Environment=NN_CHECKPOINT=../nn/checkpoints/best_v2_small_eth.pt
+Environment=BASE_STAKE=10.0
+Environment=MIN_EDGE_CENTS=8
+Environment=MIN_BET_PRICE=0.40
+Environment=MAX_LEGS_PER_WINDOW=2
+Environment=RH_MINUTE=10
+Environment=RH_TRIGGER=0.5
+Environment=TIME_DECAY=true
+Environment=MAX_WINDOW_WAGERED=30
+Environment=CAP_FRACTION_OF_BALANCE=0
+Environment=DAILY_LOSS_CAP=0
+Environment=NN_MIN_MINUTE=10
+Environment=NN_MAX_MINUTE=11
+Environment=INVERT=true
+StandardOutput=append:/root/kalshi-delta-hedging/live/shadow-b.log
+StandardError=append:/root/kalshi-delta-hedging/live/shadow-b.log
+
+[Install]
+WantedBy=multi-user.target

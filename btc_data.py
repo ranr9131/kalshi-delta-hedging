@@ -61,8 +61,13 @@ def _fetch_day(day_start_ts, day_str, day_num, total_days):
     # 1440 minutes per day, 300 per request → 5 chunks
     chunk_sec = MAX_CANDLES * 60   # 18,000 seconds = 300 minutes
 
-    day_end_ts = day_start_ts + 86400
+    # Cap day_end at "now" to avoid 400 errors for chunks past the future.
+    # Coinbase rejects ranges past current time. Without this clamp, the trader
+    # fetching today's candles spams ~16 failed retries per window.
+    day_end_ts = min(day_start_ts + 86400, int(time.time()))
     chunk_start = day_start_ts
+    if day_end_ts <= chunk_start:
+        return prices
 
     while chunk_start < day_end_ts:
         chunk_end = min(chunk_start + chunk_sec, day_end_ts)

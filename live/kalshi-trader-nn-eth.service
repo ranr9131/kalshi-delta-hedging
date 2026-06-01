@@ -1,5 +1,5 @@
 [Unit]
-Description=Kalshi BTC trader (NN v2_small, LIVE, raw config)
+Description=Kalshi NN trader (KXETH15M, v2_small ETH)
 After=network-online.target
 Wants=network-online.target
 
@@ -7,30 +7,29 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/root/kalshi-delta-hedging/live
+ExecStart=/usr/bin/python3 -u /root/kalshi-delta-hedging/live/trader.py
+Restart=on-failure
+RestartSec=10
 Environment=PAPER_MODE=false
-Environment=ASSET=BTC
+Environment=ASSET=ETH
+Environment=KALSHI_SERIES=KXETH15M
 Environment=FAIR_PRICE_SOURCE=nn
-Environment=NN_CHECKPOINT=../nn/checkpoints/best_v2_small.pt
+Environment=NN_CHECKPOINT=../nn/checkpoints/best_v2_small_eth.pt
 Environment=BASE_STAKE=10.0
 Environment=MIN_EDGE_CENTS=3
 Environment=MIN_BET_PRICE=0
 Environment=MAX_LEGS_PER_WINDOW=2
 Environment=RH_MINUTE=10
-Environment=RH_TRIGGER=1.0
+Environment=RH_TRIGGER=0.5
 Environment=TIME_DECAY=true
 Environment=MAX_WINDOW_WAGERED=30
 Environment=CAP_FRACTION_OF_BALANCE=0
 Environment=DAILY_LOSS_CAP=25
 Environment=NN_MIN_MINUTE=10
 Environment=NN_MAX_MINUTE=13
-Environment=SIDE_FILTER=
-Environment=ACTIVE_HOURS=
 Environment=INVERT=false
-ExecStart=/usr/bin/python3 /root/kalshi-delta-hedging/live/trader.py
-Restart=on-failure
-RestartSec=10
-StandardOutput=append:/root/kalshi-delta-hedging/live/trader-nn.log
-StandardError=append:/root/kalshi-delta-hedging/live/trader-nn.log
+StandardOutput=append:/root/kalshi-delta-hedging/live/trader-nn-eth.log
+StandardError=append:/root/kalshi-delta-hedging/live/trader-nn-eth.log
 
 [Install]
 WantedBy=multi-user.target

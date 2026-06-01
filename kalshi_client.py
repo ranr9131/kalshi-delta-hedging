@@ -98,7 +98,10 @@ def fetch_candlesticks(ticker, open_time_iso, close_time_iso):
     }
 
     try:
-        data = _get(f"/series/{KALSHI_SERIES}/markets/{ticker}/candlesticks", params=params)
+        # Derive series from ticker prefix (e.g. "KXBTC15M-..." -> "KXBTC15M")
+        # so the same code works for KXBTC15M, KXETH15M, KXSOL15M, etc.
+        _series = ticker.split("-")[0] if "-" in ticker else KALSHI_SERIES
+        data = _get(f"/series/{_series}/markets/{ticker}/candlesticks", params=params)
     except Exception as e:
         print(f"  Could not fetch candlesticks for {ticker}: {e}")
         return []

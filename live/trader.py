@@ -22,10 +22,28 @@ import numpy as np
 from dotenv import dotenv_values
 
 import btc_feed
+import eth_feed
+import sol_feed
+import xrp_feed
 import kalshi_auth
 import kalshi_feed
 import kalshi_trade
 import strategy
+
+# ── Asset selection (BTC by default, ETH/SOL/XRP via ASSET env) ───────────────
+# This module is structured for BTC originally. Multi-asset support added by
+# swapping `price_feed` (Coinbase asset-USD WS) and pointing kalshi_trade at
+# the right series (KX{asset}15M) via the KALSHI_SERIES env var. The NN v2
+# feature builder also uses the matching {asset}_data module.
+import os as _os_for_asset
+ASSET = _os_for_asset.environ.get("ASSET", "BTC").upper()
+_FEEDS = {"BTC": btc_feed, "ETH": eth_feed, "SOL": sol_feed, "XRP": xrp_feed}
+_DEFAULT_SERIES = {"BTC": "KXBTC15M", "ETH": "KXETH15M", "SOL": "KXSOL15M", "XRP": "KXXRP15M"}
+if ASSET not in _FEEDS:
+    raise ValueError(f"Unknown ASSET={ASSET}. Must be one of {list(_FEEDS)}.")
+price_feed = _FEEDS[ASSET]
+if ASSET != "BTC":
+    kalshi_trade.SERIES = _os_for_asset.environ.get("KALSHI_SERIES", _DEFAULT_SERIES[ASSET])
 
 # ── Config ────────────────────────────────────────────────────────────────────
 # .env supplies credentials + defaults. os.environ (e.g. from systemd
@@ -148,6 +166,17 @@ TIME_DECAY = env.get("TIME_DECAY", "true").strip().lower() not in ("false", "0",
 # adding this filter recovers +5-8pp ROI vs no filter. Set to 0 to disable.
 MIN_EDGE_CENTS = float(env.get("MIN_EDGE_CENTS", "1.0"))
 
+# Minimum fill price floor. Refuse to buy a contract for less than this many
+# dollars. Cuts the long tail of cheap-side bets where adverse selection is
+# worst (e.g. buying YES at 11c against informed sellers). Set to 0 to disable.
+MIN_BET_PRICE = float(env.get("MIN_BET_PRICE", "0"))
+
+# Invert mode — swap every YES/NO bet decision. Used to test the inverse-signal
+# hypothesis: if the live strategy systematically loses, the inverse should
+# win. Strictly PAPER-only by convention (no live code change needed; just set
+# PAPER_MODE=true alongside).
+INVERT = env.get("INVERT", "false").strip().lower() in ("1", "true", "yes")
+
 # ── NN fair-price source ──────────────────────────────────────────────────────
 # When FAIR_PRICE_SOURCE=nn, the trader replaces the 2D-table fair-price lookup
 # with NN inference using the multi-minute model. Other strategy logic (sizing,
@@ -166,11 +195,16 @@ _NN_MEAN  = None
 _NN_STD   = None
 _NN_FEATURES_N = 7
 _NN_WINDOW_M   = 15
+_NN_SCHEMA = "v1"   # "v1" (7 features) or "v2" (14 features)
 
 
 def _load_nn():
-    """Lazy-load the NN model. Called once on startup if NN mode is active."""
-    global _NN_MODEL, _NN_MEAN, _NN_STD
+    """Lazy-load the NN model. Called once on startup if NN mode is active.
+
+    Detects schema from checkpoint: n_features=7 → v1, n_features=14 → v2.
+    Reads architecture params (d_model, n_layers, ...) from checkpoint if present.
+    """
+    global _NN_MODEL, _NN_MEAN, _NN_STD, _NN_FEATURES_N, _NN_SCHEMA
     if _NN_MODEL is not None:
         return
     import torch as _torch
@@ -181,7 +215,16 @@ def _load_nn():
     if not os.path.isabs(ckpt_path):
         ckpt_path = os.path.normpath(os.path.join(_here, ckpt_path))
     ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    _NN_MODEL = TSWinPredictor(n_features=ckpt["n_features"])
+    _NN_FEATURES_N = int(ckpt.get("n_features", 7))
+    _NN_SCHEMA = "v2" if _NN_FEATURES_N == 14 else "v1"
+    _NN_MODEL = TSWinPredictor(
+        n_features=_NN_FEATURES_N,
+        d_model=ckpt.get("d_model", 32),
+        n_heads=ckpt.get("n_heads", 4),
+        n_layers=ckpt.get("n_layers", 2),
+        dim_feedforward=ckpt.get("dim_feedforward", 64),
+        dropout=ckpt.get("dropout", 0.1),
+    )
     _NN_MODEL.load_state_dict(ckpt["model_state"])
     _NN_MODEL.eval()
     _NN_MEAN = np.array(ckpt["feature_mean"], dtype=np.float32)
@@ -219,12 +262,192 @@ def _build_nn_features(window_snapshots: dict, btc_t0: float, kalshi_t0: float,
     return X, mask
 
 
-def _nn_p_yes(window_snapshots, btc_t0, kalshi_t0, hour, current_minute):
-    """Run NN to get P(YES wins) given data through current_minute."""
+def _candle_at(candles, target_ts):
+    for c in candles:
+        if c["ts"] >= target_ts:
+            return c
+    return None
+
+
+# Per-window cache for v2 candles + BTC. Keyed by window open_iso. Reset when
+# a new window is seen. Avoids redundant API calls across the 30s decision ticks.
+_V2_WINDOW_CACHE: dict = {"open_iso": None, "candles": None, "btc_prices": None,
+                          "btc_t0": None, "kalshi_t0": None}
+
+
+def _build_nn_features_v2(ticker, open_iso, close_iso, current_minute, btc_t0):
+    """Return (X[15,14], mask[15]) for v2 schema at decision time.
+
+    Mirrors nn/build_dataset_v2.py exactly. Fetches Kalshi candles + BTC prices
+    on first call per window (cached for subsequent ticks).
+    """
+    # Lazy import — only needed in NN mode
+    _here = os.path.dirname(os.path.abspath(__file__))
+    _parent = os.path.dirname(_here)
+    if _parent not in sys.path:
+        sys.path.insert(0, _parent)
+    import kalshi_client as _kc
+    if ASSET == "ETH":
+        import eth_data as _bd
+    elif ASSET == "SOL":
+        import sol_data as _bd
+    elif ASSET == "XRP":
+        import xrp_data as _bd
+    else:
+        import btc_data as _bd
+    from datetime import datetime as _dt
+
+    open_dt = _dt.fromisoformat(open_iso.replace("Z", "+00:00"))
+    t0 = int(open_dt.timestamp())
+
+    # Helper: kalshi_client.fetch_candlesticks has a sticky disk cache that
+    # never refreshes once written. For LIVE windows we MUST invalidate it
+    # before every fetch, else the NN sees only the first few minutes of
+    # candle data forever (fair stays constant across T+10..T+13).
+    def _fresh_candles():
+        try:
+            from config import CACHE_DIR as _CD
+            _cache_file = os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), _CD, f"candles_{ticker}.json")
+            if os.path.exists(_cache_file):
+                os.remove(_cache_file)
+        except Exception:
+            pass
+        try:
+            return _kc.fetch_candlesticks(ticker, open_iso, close_iso)
+        except Exception:
+            return None
+
+    # Refresh cache if window changed
+    if _V2_WINDOW_CACHE["open_iso"] != open_iso:
+        candles = _fresh_candles()
+        # Delete today's price cache before fetching so we get fresh data.
+        # The per-day cache otherwise returns stale data captured at first call.
+        # IMPORTANT: file name must match the asset (btc_cb vs eth_cb).
+        try:
+            from config import CACHE_DIR as _CD
+            _today = _dt.now().strftime("%Y%m%d")
+            _prefix = {"ETH": "eth_cb", "SOL": "sol_cb", "XRP": "xrp_cb"}.get(ASSET, "btc_cb")
+            _today_cache = os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), _CD, f"{_prefix}_{_today}.json")
+            if os.path.exists(_today_cache):
+                os.remove(_today_cache)
+        except Exception:
+            pass
+        try:
+            btc_prices = _bd.fetch_btc_prices(t0 - 60, t0 + 16 * 60)
+        except Exception:
+            btc_prices = {}
+        _V2_WINDOW_CACHE.update({
+            "open_iso": open_iso, "candles": candles, "btc_prices": btc_prices,
+            "btc_t0": btc_t0, "kalshi_t0": None,
+        })
+    else:
+        # Refresh candles each minute tick (high/low/volume update as minute closes).
+        # Use _fresh_candles to bypass the sticky disk cache.
+        fresh = _fresh_candles()
+        if fresh:
+            _V2_WINDOW_CACHE["candles"] = fresh
+        # Also refresh per-day price cache mid-window so newer minutes' prices
+        # land in lookups for T+11, T+12, T+13 (otherwise they fall back to T+10).
+        try:
+            from config import CACHE_DIR as _CD
+            _today = _dt.now().strftime("%Y%m%d")
+            _prefix = {"ETH": "eth_cb", "SOL": "sol_cb", "XRP": "xrp_cb"}.get(ASSET, "btc_cb")
+            _today_cache = os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), _CD, f"{_prefix}_{_today}.json")
+            if os.path.exists(_today_cache):
+                os.remove(_today_cache)
+            _V2_WINDOW_CACHE["btc_prices"] = _bd.fetch_btc_prices(t0 - 60, t0 + 16 * 60)
+        except Exception:
+            pass
+
+    candles = _V2_WINDOW_CACHE["candles"]
+    btc_prices = _V2_WINDOW_CACHE["btc_prices"]
+    if not candles or not btc_prices:
+        return None, None
+
+    c0 = _candle_at(candles, t0)
+    if c0 is None:
+        return None, None
+    kalshi_t0 = c0["yes_close"]
+    if not (0.01 < kalshi_t0 < 0.99):
+        return None, None
+
+    X = np.zeros((_NN_WINDOW_M, 14), dtype=np.float32)
+    mask = np.zeros(_NN_WINDOW_M, dtype=bool)
+    hour = open_dt.hour
+    dow = open_dt.weekday()
+    hour_sin = math.sin(2 * math.pi * hour / 24)
+    hour_cos = math.cos(2 * math.pi * hour / 24)
+    dow_sin  = math.sin(2 * math.pi * dow / 7)
+    btc_history = []
+    last_btc = btc_t0
+    abs_max  = 0.0
+
+    for m in range(_NN_WINDOW_M):
+        if m > current_minute:
+            break
+        t = t0 + m * 60
+        btc = _bd.lookup(btc_prices, t)
+        cand = _candle_at(candles, t)
+        if btc is None or cand is None:
+            continue
+        yc = float(cand.get("yes_close"))
+        if not (0.01 < yc < 0.99):
+            continue
+        btc_history.append(btc)
+        ret_t0 = (btc / btc_t0) - 1.0
+        ret_1m = (btc / last_btc) - 1.0 if last_btc else 0.0
+        last_btc = btc
+        abs_max  = max(abs_max, abs(ret_t0))
+        ret_5m   = (btc / btc_history[-6]) - 1.0 if len(btc_history) >= 6 else 0.0
+        yo = float(cand.get("yes_open", yc))
+        yh = float(cand.get("yes_high", yc))
+        yl = float(cand.get("yes_low",  yc))
+        bc = float(cand.get("yes_bid_close", yc))
+        ac = float(cand.get("yes_ask_close", yc))
+        vol = float(cand.get("volume", 0.0))
+        intramin = yc - yo
+        rng_norm = (yh - yl) / max(yc, 0.05)
+        spread   = max(0.0, min(0.20, ac - bc))
+        vol_log  = math.log1p(vol) / 10.0
+        X[m, 0]  = ret_t0
+        X[m, 1]  = ret_1m
+        X[m, 2]  = ret_5m
+        X[m, 3]  = abs_max
+        X[m, 4]  = yc
+        X[m, 5]  = yc - kalshi_t0
+        X[m, 6]  = intramin
+        X[m, 7]  = rng_norm
+        X[m, 8]  = spread
+        X[m, 9]  = vol_log
+        X[m, 10] = m / float(_NN_WINDOW_M - 1)
+        X[m, 11] = hour_sin
+        X[m, 12] = hour_cos
+        X[m, 13] = dow_sin
+        mask[m] = True
+
+    return X, mask
+
+
+def _nn_p_yes(window_snapshots, btc_t0, kalshi_t0, hour, current_minute,
+              ticker=None, open_iso=None, close_iso=None):
+    """Run NN to get P(YES wins) given data through current_minute.
+
+    Dispatches based on schema: v2 fetches its own candles/btc, v1 uses
+    the in-memory window_snapshots dict.
+    """
     import torch as _torch
-    X, mask = _build_nn_features(window_snapshots, btc_t0, kalshi_t0, hour, current_minute)
-    if mask.sum() == 0:
-        return 0.5
+    if _NN_SCHEMA == "v2":
+        X, mask = _build_nn_features_v2(ticker, open_iso, close_iso,
+                                         current_minute, btc_t0)
+        if X is None or mask is None or mask.sum() == 0:
+            return 0.5
+    else:
+        X, mask = _build_nn_features(window_snapshots, btc_t0, kalshi_t0, hour, current_minute)
+        if mask.sum() == 0:
+            return 0.5
     Xn = ((X - _NN_MEAN) / _NN_STD).astype(np.float32)
     with _torch.no_grad():
         logit = _NN_MODEL(_torch.from_numpy(Xn[None]), _torch.from_numpy(mask[None]))
@@ -337,8 +560,8 @@ def elapsed_in_window(dt: datetime) -> float:
 
 def get_btc_with_retry() -> float | None:
     for attempt in range(BTC_RETRY_ATTEMPTS):
-        price = btc_feed.get_price()
-        age   = btc_feed.get_price_age()
+        price = price_feed.get_price()
+        age   = price_feed.get_price_age()
         if price is not None and age < MAX_PRICE_AGE_SECS:
             return price
         reason = "unavailable" if price is None else f"stale ({age:.1f}s old)"
@@ -504,7 +727,10 @@ def run_dh_loop(
             if _parent not in sys.path:
                 sys.path.insert(0, _parent)
             import kalshi_client as _kc
-            import btc_data as _bd
+            if ASSET == "ETH":
+                import eth_data as _bd
+            else:
+                import btc_data as _bd
             open_iso  = window_ts.isoformat()
             close_iso = (window_ts + timedelta(minutes=WINDOW_MINUTES)).isoformat()
             _candles = _kc.fetch_candlesticks(ticker, open_iso, close_iso)
@@ -531,6 +757,14 @@ def run_dh_loop(
     no_contracts_hedged  = 0.0   # how many NO contracts are already covered by YES hedges
     yes_contracts_hedged = 0.0   # how many YES contracts are already covered by NO hedges
 
+    # Real-time guards: refuse to place orders if our view of "now" diverges from
+    # the wall clock. The Kalshi WS can go stale for minutes during network/CPU
+    # hiccups, and without these guards the trader sends orders for markets that
+    # already settled → Kalshi 404 "market_not_found". See WS staleness incidents.
+    WINDOW_END_GRACE_SECS = 30   # stop iterating once we're within this much of window close
+    WS_MAX_STALENESS_SECS = 30   # refuse to place orders if Kalshi WS is more stale than this
+    BTC_MAX_STALENESS_SECS = 15  # refuse to place orders if BTC feed is more stale than this
+
     for offset_secs in DH_OFFSETS_SECS:
         t_min      = offset_secs / 60.0           # fractional minute, for logging / dh_minute column
         minute_idx = int(offset_secs // 60)       # integer minute, for 2D fair-price lookup
@@ -544,11 +778,31 @@ def run_dh_loop(
         if _shutdown:
             break
 
+        # GUARD 1: if the *real* clock has moved past (window_close - grace), abort
+        # the rest of this window's decisions. Otherwise stale WS data tricks the
+        # trader into sending orders for an already-settled market.
+        elapsed_real = (datetime.now(timezone.utc) - window_ts).total_seconds()
+        seconds_left = WINDOW_MINUTES * 60 - elapsed_real
+        if seconds_left < WINDOW_END_GRACE_SECS:
+            log.warning(
+                f"Window almost closed (real elapsed {elapsed_real:.0f}s, "
+                f"{seconds_left:.0f}s left) — aborting remaining decisions for {ticker}"
+            )
+            break
+
         btc_now = get_btc_with_retry()
         if btc_now is None:
             log.warning(f"BTC unavailable at T+{t_min:.1f}, skipping interval.")
             continue
-        btc_age = btc_feed.get_price_age()
+        btc_age = price_feed.get_price_age()
+
+        # GUARD 2: BTC/ETH price too stale to trust for decisions.
+        if btc_age > BTC_MAX_STALENESS_SECS:
+            log.warning(
+                f"BTC feed stale ({btc_age:.1f}s > {BTC_MAX_STALENESS_SECS}s) at T+{t_min:.1f}, "
+                f"skipping interval."
+            )
+            continue
 
         # Use WebSocket prices (real-time) if fresh; fall back to REST on stale feed.
         ws_bid = kalshi_feed.get_bid()
@@ -564,6 +818,15 @@ def run_dh_loop(
                 "yes_ask_dollars": yes_ask,
             }
         else:
+            # GUARD 3: WS too stale → REST fallback only if WS isn't catastrophically behind.
+            # If WS is more than WS_MAX_STALENESS_SECS old, the trader's whole timing
+            # model is suspect (we may be acting on outdated window state).
+            if ws_age > WS_MAX_STALENESS_SECS:
+                log.warning(
+                    f"Kalshi WS critically stale ({ws_age:.1f}s > {WS_MAX_STALENESS_SECS}s) "
+                    f"at T+{t_min:.1f}. Skipping interval — won't risk 404 on settled market."
+                )
+                continue
             log.warning(f"Kalshi WS stale ({ws_age:.1f}s) at T+{t_min:.1f}, falling back to REST.")
             try:
                 market = kalshi_trade.get_open_market()
@@ -573,6 +836,15 @@ def run_dh_loop(
             if market is None:
                 log.warning(f"No open market at T+{t_min:.1f}. Skipping interval.")
                 continue
+            # GUARD 4: REST market ticker must match the window's ticker. If they
+            # differ, the previous window has already settled and Kalshi handed
+            # us the NEW window's market — we'd 404 on the old ticker.
+            if market.get("ticker") != ticker:
+                log.warning(
+                    f"REST returned different ticker ({market.get('ticker')} vs window "
+                    f"{ticker}) — previous window settled. Aborting remaining decisions."
+                )
+                break
             yes_bid = float(market["yes_bid_dollars"])
             yes_ask = float(market["yes_ask_dollars"])
 
@@ -595,7 +867,11 @@ def run_dh_loop(
                 log.info(f"  -> NN: T+{t_min:.1f} outside [{NN_MIN_MINUTE},{NN_MAX_MINUTE}], skip decision")
                 continue
             kt0 = kalshi_t0_local if kalshi_t0_local is not None else kalshi_mid
-            p_yes = _nn_p_yes(window_snapshots, btc_t0, kt0, window_ts.hour, minute_idx)
+            # v2 schema needs ticker/open_iso/close_iso for candle fetch
+            _open_iso  = window_ts.isoformat()
+            _close_iso = (window_ts + timedelta(minutes=WINDOW_MINUTES)).isoformat()
+            p_yes = _nn_p_yes(window_snapshots, btc_t0, kt0, window_ts.hour, minute_idx,
+                              ticker=ticker, open_iso=_open_iso, close_iso=_close_iso)
             # fair = P(directional side wins)
             fair = p_yes if direction_up else (1.0 - p_yes)
         else:
@@ -691,6 +967,23 @@ def run_dh_loop(
             log.info(f"  -> SKIP: leg cap {MAX_LEGS_PER_WINDOW} reached "
                      f"({len(yes_bets)}Y/{len(no_bets)}N)")
             continue
+
+        # INVERT mode: swap bet sizes so we trade against the NN signal.
+        if INVERT and (bet_yes > 0 or bet_no > 0):
+            bet_yes, bet_no = bet_no, bet_yes
+            log.info(f"  -> INVERT: swapped to yes=${bet_yes:.2f} no=${bet_no:.2f}")
+
+        # MIN_BET_PRICE filter: refuse to fill below the configured price floor
+        # (computed against the would-be fill price for each side).
+        if MIN_BET_PRICE > 0:
+            yes_fill_chk = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            no_fill_chk  = min((1.0 - yes_bid) + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
+            if bet_yes > 0 and yes_fill_chk < MIN_BET_PRICE:
+                log.info(f"  -> SKIP YES: fill {yes_fill_chk:.3f} < MIN_BET_PRICE {MIN_BET_PRICE:.3f}")
+                bet_yes = 0.0
+            if bet_no > 0 and no_fill_chk < MIN_BET_PRICE:
+                log.info(f"  -> SKIP NO:  fill {no_fill_chk:.3f} < MIN_BET_PRICE {MIN_BET_PRICE:.3f}")
+                bet_no = 0.0
 
         if bet_yes >= MIN_BET:
             fill  = min(yes_ask + kalshi_trade.FILL_BUFFER_CENTS / 100, 0.99)
@@ -938,7 +1231,7 @@ def run_window():
     if btc_entry is None:
         log.error(f"BTC price unavailable at T+{entry_min}. Skipping window.")
         return
-    btc_age_entry = btc_feed.get_price_age()
+    btc_age_entry = price_feed.get_price_age()
 
     log.info(
         f"cutoff=${btc_t0:,.2f} | BTC T+{entry_min}=${btc_entry:,.2f} (age={btc_age_entry:.1f}s) | "
@@ -1138,6 +1431,10 @@ def main():
     else:
         log.info("Time-decay sizing disabled (flat sizing)")
     log.info(f"Edge filter: skip bets with edge < {MIN_EDGE_CENTS:.1f}c (after {kalshi_trade.FILL_BUFFER_CENTS}c buffer)")
+    if MIN_BET_PRICE > 0:
+        log.info(f"Min bet price floor: ${MIN_BET_PRICE:.3f} (refuse cheaper fills)")
+    if INVERT:
+        log.info("⚠ INVERT MODE: every YES/NO decision is SWAPPED (paper-only test)")
 
     # NN mode init — load model & log config.
     if FAIR_PRICE_SOURCE == "nn":
@@ -1173,16 +1470,16 @@ def main():
         hours_str = ", ".join(f"{h:02d}:00" for h in sorted(ACTIVE_HOURS))
         log.info(f"Active hours (UTC): {hours_str}")
 
-    btc_feed.start()
+    price_feed.start()
     log.info("Waiting for first BTC price from Coinbase WebSocket...")
     for _ in range(30):
-        if btc_feed.get_price() is not None:
+        if price_feed.get_price() is not None:
             break
         time.sleep(1)
     else:
         log.error("No BTC price received within 30s. Check network and Coinbase WebSocket. Exiting.")
         sys.exit(1)
-    log.info(f"BTC feed live: ${btc_feed.get_price():,.2f}")
+    log.info(f"BTC feed live: ${price_feed.get_price():,.2f}")
 
     # Start Kalshi WebSocket feed for real-time bid/ask (REST API lags by 3-5c).
     # Initial ticker will be set when first window opens via set_ticker().
