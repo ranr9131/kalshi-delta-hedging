@@ -762,8 +762,12 @@ def run_dh_loop(
     # hiccups, and without these guards the trader sends orders for markets that
     # already settled → Kalshi 404 "market_not_found". See WS staleness incidents.
     WINDOW_END_GRACE_SECS = 30   # stop iterating once we're within this much of window close
-    WS_MAX_STALENESS_SECS = 30   # refuse to place orders if Kalshi WS is more stale than this
-    BTC_MAX_STALENESS_SECS = 15  # refuse to place orders if BTC feed is more stale than this
+    WS_MAX_STALENESS_SECS = 10   # refuse to place orders if Kalshi WS is more stale than this
+                                  # (tightened 30→10 on 2026-06-02; ping_interval is 10s so
+                                  # legit drift should stay well under this)
+    BTC_MAX_STALENESS_SECS = 5   # refuse to place orders if crypto feed is more stale than this
+                                  # (tightened 15→5 on 2026-06-02; with 10s pings the feed
+                                  # should never be older than 1-2s during normal operation)
 
     for offset_secs in DH_OFFSETS_SECS:
         t_min      = offset_secs / 60.0           # fractional minute, for logging / dh_minute column

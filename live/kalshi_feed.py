@@ -168,11 +168,13 @@ def _run_loop():
                 on_error=_on_error,
                 on_close=_on_close,
             )
-            ws.run_forever(ping_interval=30, ping_timeout=10)
+            # Aggressive ping cadence: 10s/5s catches dead connections within ~15s
+            # vs default 30s/10s which can let WS drift for >40s before noticing.
+            ws.run_forever(ping_interval=10, ping_timeout=5)
         except Exception as e:
             log.warning(f"[kalshi_feed] connection error: {e}")
-        log.info("[kalshi_feed] Reconnecting in 5s...")
-        time.sleep(5)
+        log.info("[kalshi_feed] Reconnecting in 2s...")
+        time.sleep(2)
 
 
 def start(private_key, api_key_id: str, initial_ticker: str | None = None) -> threading.Thread:

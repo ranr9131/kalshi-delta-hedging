@@ -10,12 +10,16 @@ from kalshi_auth import make_auth_headers
 BASE_URL = "https://api.elections.kalshi.com"
 SERIES   = "KXBTC15M"
 
-FILL_BUFFER_CENTS = 3  # absorbs ~300ms price movement between WS read and order landing
+FILL_BUFFER_CENTS = 5  # absorbs ~300ms price movement between WS read and order landing
 # History: 2c → 5c (raised after rested-and-cancelled failures on fast markets)
 # → 3c (lowered 2026-05-22 after sim showed 5c buffer is the dominant friction
 # costing ~16pp ROI. 3c is a compromise: half the spread cost vs 5c, while still
 # absorbing typical 1-3c price movements between read and order landing). On
 # faster moves we now rely on the chase-retry path in place_order_with_retry.
+# → 5c (raised 2026-06-01 after observing 15-35% order failure rate live across
+# all 4 traders, especially XRP at 35%. Sim's projected -16pp ROI cost is the
+# THEORETICAL ceiling but doesn't capture the lost edge from bets that never
+# execute at all. 5c → expected fill rate ~95%+ across all assets.)
 
 
 def get_open_market() -> dict | None:

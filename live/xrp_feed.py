@@ -61,7 +61,7 @@ def start() -> threading.Thread:
         on_close=_on_close,
     )
     thread = threading.Thread(
-        target=lambda: ws.run_forever(reconnect=5),
+        target=lambda: ws.run_forever(reconnect=2, ping_interval=10, ping_timeout=5),
         daemon=True,
         name="xrp-feed",
     )

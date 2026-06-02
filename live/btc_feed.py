@@ -57,7 +57,9 @@ def _on_close(ws, code, msg):
 def start() -> threading.Thread:
     """
     Start the Coinbase WebSocket feed in a daemon thread.
-    reconnect=5: on unexpected close, wait 5s and reconnect automatically.
+    reconnect=2:  on unexpected close, wait 2s and reconnect automatically.
+    ping_interval=10:  send a websocket ping every 10s to keep connection alive.
+    ping_timeout=5:    if no pong within 5s, treat connection as dead → reconnect.
     """
     ws = websocket.WebSocketApp(
         WS_URL,
@@ -67,7 +69,7 @@ def start() -> threading.Thread:
         on_close=_on_close,
     )
     thread = threading.Thread(
-        target=lambda: ws.run_forever(reconnect=5),
+        target=lambda: ws.run_forever(reconnect=2, ping_interval=10, ping_timeout=5),
         daemon=True,
         name="btc-feed",
     )
