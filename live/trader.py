@@ -146,7 +146,7 @@ DH_LAST_TICK_SECS    = 14 * 60
 DH_OFFSETS_SECS      = list(range(DH_FIRST_TICK_SECS, DH_LAST_TICK_SECS + 1, DH_TICK_SECS))
 # DH modes enter at T+4; t+5 mode still waits until T+5
 DECISION_OFFSET_SECS = 4 * 60 if MODE.startswith("dh") else 5 * 60
-MAX_FILL_PRICE       = 0.97   # skip ENTRY bets whose buffered fill price exceeds this
+MAX_FILL_PRICE       = float(env.get("MAX_FILL_PRICE", "0.97"))   # skip ENTRY bets whose buffered fill price exceeds this
 # Hedges (RH) skip when fill exceeds this. Was 0.995 (allow any fill); lowered
 # to 0.80 after observing cascade losses where hedges at $0.85-0.99 had
 # minimal insurance value (you pay 95c to receive $1 if right — that's 5c of
