@@ -1,0 +1,19 @@
+[Unit]
+Description=Kalshi snipe dashboard (Flask + SSE)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+Environment=PORT=8080
+Environment=HOST=0.0.0.0
+Environment=LOG_PATH=/home/ec2-user/kalshi-delta-hedging/live/snipes.csv
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/dashboard.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/dashboard.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/dashboard.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

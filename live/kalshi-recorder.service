@@ -1,0 +1,17 @@
+[Unit]
+Description=Kalshi+Crypto WS recorder (backtest corpus)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+Environment=REC_ROOT=/home/ec2-user/kalshi-delta-hedging/recordings
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/recorder.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/recorder.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/recorder.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+[Unit]
+Description=Kalshi stale-order sniper (paper mode)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+Environment=PAPER_MODE=true
+Environment=MIN_EDGE_CENTS=5
+Environment=MAX_STAKE_PER_SNIPE=5.0
+Environment=MIN_MINUTES_LEFT=0.5
+Environment=MAX_MINUTES_LEFT=14.0
+Environment=MIN_LEVEL_AGE_SEC=2.0
+Environment=MOVE_WINDOW_SEC=3.0
+Environment=MOVE_GATE_MULT=1.2
+Environment=MIN_FAIR_P=0.15
+Environment=MAX_FAIR_P=0.85
+Environment=LOG_PATH=/home/ec2-user/kalshi-delta-hedging/live/snipes.csv
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/sniper.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/sniper.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/sniper.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
