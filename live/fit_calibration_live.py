@@ -82,6 +82,9 @@ def main():
     ap.add_argument("--out",     default=os.path.join(here, "calibration_v2.json"))
     ap.add_argument("--min-n",   type=int, default=20,
                     help="minimum pairs required per asset to emit a fit")
+    ap.add_argument("--merge",   action="store_true",
+                    help="merge with existing --out file; keep existing entry "
+                         "if its n >= new fit's n (preserves curated patches)")
     args = ap.parse_args()
 
     if not os.path.exists(args.snipes) or not os.path.exists(args.settle):
@@ -172,6 +175,33 @@ def main():
     if not out:
         print("no assets met min-n threshold; not writing output", file=sys.stderr)
         sys.exit(1)
+
+    # Merge mode: load existing, keep any entry where existing_n >= new_n.
+    # This prevents accidentally clobbering a curated fit (e.g. the ETH
+    # patch where we copied V1's historical fit n=2736 because the live
+    # V2 fit n=30 was unreliable) with a smaller live re-fit.
+    if args.merge and os.path.exists(args.out):
+        try:
+            existing = json.load(open(args.out))
+        except Exception:
+            existing = {}
+        kept = []
+        for asset, new_entry in list(out.items()):
+            old = existing.get(asset)
+            if not old:
+                continue
+            old_n = old.get("n", 0)
+            new_n = new_entry.get("n", 0)
+            if old_n >= new_n:
+                out[asset] = old
+                kept.append(f"{asset}(old n={old_n} >= new n={new_n})")
+        # Bring forward any existing entries not in the new fit
+        for asset, old_entry in existing.items():
+            if asset not in out:
+                out[asset] = old_entry
+                kept.append(f"{asset}(preserved, not refit)")
+        if kept:
+            print("\nmerge preserved: " + ", ".join(kept))
 
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)

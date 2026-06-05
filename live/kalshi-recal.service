@@ -1,0 +1,7 @@
+[Unit]
+Description=Kalshi sniper daily calibration refit (oneshot, triggered by .timer)
+
+[Service]
+Type=oneshot
+User=ec2-user
+ExecStart=/home/ec2-user/kalshi-delta-hedging/live/auto_recalibrate.sh

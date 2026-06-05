@@ -1,0 +1,44 @@
+[Unit]
+Description=Kalshi multi-account sniper (pro-rata stake allocation across accounts)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+
+# ── Combined budget across ALL accounts ───────────────────────────────────
+Environment=PAPER_MODE=false
+Environment=ACCOUNTS=LEO,FRIEND
+Environment=TOTAL_STAKE_PER_SNIPE=10.0
+Environment=TOTAL_DAILY_LOSS_LIMIT=200.0
+Environment=BALANCE_REFRESH_SEC=60
+
+# ── Strategy parameters (same as V1) ──────────────────────────────────────
+Environment=MIN_EDGE_CENTS=5
+Environment=MIN_MINUTES_LEFT=0.5
+Environment=MAX_MINUTES_LEFT=14.0
+Environment=MIN_LEVEL_AGE_SEC=2.0
+Environment=MOVE_WINDOW_SEC=3.0
+Environment=MOVE_GATE_MULT=1.2
+Environment=MIN_FAIR_P=0.15
+Environment=MAX_FAIR_P=0.85
+Environment=SERIES=KXBTC15M,KXETH15M,KXSOL15M,KXXRP15M,KXHYPE15M
+
+# ── Per-account credentials ─────────────────────────────────────────────
+# Pulled from /home/ec2-user/kalshi-delta-hedging/live/.env so they don't
+# live in this unit file.  Expected variables:
+#   LEO_KEY_ID
+#   LEO_PRIVATE_KEY
+#   FRIEND_KEY_ID
+#   FRIEND_PRIVATE_KEY
+EnvironmentFile=/home/ec2-user/kalshi-delta-hedging/live/.env
+
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/sniper_multi.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/sniper_multi.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/sniper_multi.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

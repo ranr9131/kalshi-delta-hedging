@@ -1,0 +1,16 @@
+[Unit]
+Description=Kalshi sports observer (auto-attaches when games go live)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/sports_observer.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/sports_observer.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/sports_observer.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

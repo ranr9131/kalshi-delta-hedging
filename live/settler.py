@@ -30,12 +30,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH    = os.environ.get("LOG_PATH",    os.path.join(ROOT, "snipes.csv"))
 RESULT_PATH = os.environ.get("RESULT_PATH", os.path.join(ROOT, "settlements.csv"))
-# Extra snipe-log files to pull tickers from (e.g. v2 sniper).  Comma-separated.
+# Extra snipe-log files to pull tickers from.  Comma-separated.
 EXTRA_LOGS  = [p for p in os.environ.get("EXTRA_LOGS", "").split(",") if p]
-# Sensible default: include snipes_v2.csv if it exists.
-_default_v2 = os.path.join(ROOT, "snipes_v2.csv")
-if not EXTRA_LOGS and os.path.exists(_default_v2):
-    EXTRA_LOGS.append(_default_v2)
+# Auto-discover any snipes_*.csv (v2, per-account, etc.) so we don't have
+# to manually edit the unit file every time a new sniper variant launches.
+if not EXTRA_LOGS:
+    import glob
+    for path in sorted(glob.glob(os.path.join(ROOT, "snipes_*.csv"))):
+        if path != LOG_PATH:
+            EXTRA_LOGS.append(path)
 
 KALSHI_BASE = "https://api.elections.kalshi.com"
 POLL_INTERVAL_SEC      = float(os.environ.get("POLL_INTERVAL_SEC", "30"))

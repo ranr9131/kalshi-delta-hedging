@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Kalshi calibration refit at 06:00 UTC
+
+[Timer]
+# Runs every day at 06:00 UTC (= 2 AM ET / 11 PM PT — quiet hour)
+OnCalendar=*-*-* 06:00:00
+# If the system was off at the scheduled time, fire on next boot
+Persistent=true
+Unit=kalshi-recal.service
+
+[Install]
+WantedBy=timers.target
