@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
-Environment=PAPER_MODE=false
+Environment=PAPER_MODE=true
 Environment=MIN_EDGE_CENTS=5
 Environment=MAX_STAKE_PER_SNIPE=10.0
 Environment=MIN_MINUTES_LEFT=0.5

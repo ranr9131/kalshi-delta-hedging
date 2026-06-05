@@ -1,0 +1,28 @@
+[Unit]
+Description=Kalshi soccer goal sniper (event-driven, buy YES on scoring team)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+
+Environment=PAPER_MODE=true
+Environment=STAKE_PER_GOAL=10.0
+Environment=TAKE_PROFIT_CENTS=8
+Environment=HOLD_FOR_SECONDS=600
+Environment=DAILY_LOSS_LIMIT=100.0
+Environment=MIN_PRICE_TO_BUY=0.05
+Environment=MAX_PRICE_TO_BUY=0.85
+# Leagues: comma-separated ESPN soccer league IDs.
+# Default covers the major Euro leagues + World Cup + MLS/NWSL + Liga MX.
+Environment=LEAGUES=eng.1,uefa.champions,esp.1,ger.1,ita.1,usa.1,fra.1,fifa.worldcup,uefa.europa,por.1,col.1,mex.1,fifa.wwc,usa.nwsl
+
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/soccer_sniper.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/soccer_sniper.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/soccer_sniper.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

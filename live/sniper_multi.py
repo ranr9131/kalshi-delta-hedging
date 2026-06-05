@@ -53,7 +53,17 @@ import kalshi_auth
 import kalshi_orderbook as ob
 import kalshi_trade
 import btc_feed, eth_feed, sol_feed, xrp_feed, hype_feed
+from coinbase_feeds import make_feed
+# Generic feeds for newer coins (same pattern as sniper_v2)
+_bnb_feed  = make_feed("BNB-USD")
+_doge_feed = make_feed("DOGE-USD")
+# V1 pricing: constant per-asset σ + calibration.json (historical fit).
+# Note: directional gate + opposite-side guard from V2 stay active (built
+# into sniper_multi itself, not the model).  This gives a hybrid: V1 model
+# without V1's worst failure modes.
 from fair_price_model import fair_p_yes, fair_p_no, ASSET_VOL_PER_MIN
+# No-op stub so the tick loop's _record_price_for_vol(...) call still works
+def _record_price_for_vol(asset, price): pass
 
 
 # ── Config (shared) ─────────────────────────────────────────────────────────
@@ -90,7 +100,7 @@ def _min_move_bps_for(asset: str) -> float:
     sigma = ASSET_VOL_PER_MIN.get(asset.upper(), 0.0015)
     return sigma * math.sqrt(MOVE_WINDOW_SEC / 60.0) * 10000.0 * MOVE_GATE_MULT
 
-_MIN_MOVE_BPS = {a: _min_move_bps_for(a) for a in ("BTC","ETH","SOL","XRP","HYPE")}
+_MIN_MOVE_BPS = {a: _min_move_bps_for(a) for a in ("BTC","ETH","SOL","XRP","HYPE","BNB","DOGE")}
 
 
 # ── Logging ─────────────────────────────────────────────────────────────────
@@ -273,6 +283,7 @@ SERIES_TO_ASSET = {
     "KXBTC15M":  "BTC",  "KXETH15M": "ETH",
     "KXSOL15M":  "SOL",  "KXXRP15M": "XRP",
     "KXHYPE15M": "HYPE",
+    "KXBNB15M":  "BNB",  "KXDOGE15M": "DOGE",
 }
 
 
@@ -289,6 +300,8 @@ def _price_for_asset(asset: str) -> Optional[float]:
     if asset == "SOL":  return sol_feed.get_price()
     if asset == "XRP":  return xrp_feed.get_price()
     if asset == "HYPE": return hype_feed.get_price()
+    if asset == "BNB":  return _bnb_feed.get_price()
+    if asset == "DOGE": return _doge_feed.get_price()
     return None
 
 
@@ -298,6 +311,8 @@ def _price_age_for_asset(asset: str) -> float:
     if asset == "SOL":  return sol_feed.get_price_age()
     if asset == "XRP":  return xrp_feed.get_price_age()
     if asset == "HYPE": return hype_feed.get_price_age()
+    if asset == "BNB":  return _bnb_feed.get_price_age()
+    if asset == "DOGE": return _doge_feed.get_price_age()
     return float("inf")
 
 
@@ -348,6 +363,8 @@ def _record_price(asset: str, price: float) -> None:
         buf.popleft()
 
 def _recent_move_bps(asset: str, window_sec: float) -> float:
+    """Magnitude of recent move in bps (always >= 0).  Used by the move-
+    threshold gate."""
     buf = _price_hist[asset]
     if len(buf) < 2: return 0.0
     now_ts, now_px = buf[-1]
@@ -356,6 +373,41 @@ def _recent_move_bps(asset: str, window_sec: float) -> float:
     ref = next((p for t, p in buf if t >= cutoff), None)
     if ref is None: return 0.0
     return abs(now_px - ref) / now_px * 10000.0
+
+def _recent_move_signed_bps(asset: str, window_sec: float) -> float:
+    """Signed move in bps over `window_sec`.  +ve = price went up, -ve = down.
+    Used by the DIRECTIONAL gate: YES side only fires on +ve move, NO side
+    only on -ve.  Stops us from buying YES into a falling market (the
+    failure mode that produced the 16% WR hour on 2026-06-05 14:00 UTC)."""
+    buf = _price_hist[asset]
+    if len(buf) < 2: return 0.0
+    now_ts, now_px = buf[-1]
+    if now_px <= 0: return 0.0
+    cutoff = now_ts - window_sec
+    ref = next((p for t, p in buf if t >= cutoff), None)
+    if ref is None: return 0.0
+    return (now_px - ref) / now_px * 10000.0
+
+
+# Track in-flight exposure per ticker so we don't fire BOTH sides on the
+# same market in quick succession (the same-market opposite-side bug).
+# Key: ticker → set of sides we've fired today.  Resets at UTC midnight.
+_sides_fired: Dict[str, set] = defaultdict(set)
+_sides_fired_date: str = ""
+
+def _check_and_record_side(ticker: str, side: str) -> bool:
+    """Return True if firing `side` on `ticker` is allowed.  Blocks if we've
+    already fired the opposite side today on the same market."""
+    global _sides_fired_date
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if today != _sides_fired_date:
+        _sides_fired.clear()
+        _sides_fired_date = today
+    opp = "no" if side == "yes" else "yes"
+    if opp in _sides_fired[ticker]:
+        return False  # blocked — opposite side already in play
+    _sides_fired[ticker].add(side)
+    return True
 
 
 # ── Per-account order placement (parallel) ──────────────────────────────────
@@ -423,17 +475,24 @@ def _maybe_snipe(ticker: str, market: dict, book: ob.Book,
     yes_ask = book.yes_ask(); no_ask = book.no_ask()
     edge_dollars = MIN_EDGE_CENTS / 100.0
 
+    # Gate 1: magnitude — recent crypto move must be at least typical-vol size.
+    # (Directional gate REMOVED per user request — both YES and NO can fire
+    #  regardless of move sign, as long as magnitude is sufficient.)
     move_bps = _recent_move_bps(asset, MOVE_WINDOW_SEC)
     if move_bps < _MIN_MOVE_BPS.get(asset, 5.0):
         return
 
     snipes = []  # (side, limit_d, fair_p, edge_c, lvl_age)
-    if yes_ask is not None and yes_ask >= 0.01 and MIN_FAIR_P <= fpy <= MAX_FAIR_P:
+    # YES side
+    if (yes_ask is not None and yes_ask >= 0.01
+            and MIN_FAIR_P <= fpy <= MAX_FAIR_P):
         max_pay = fpy - edge_dollars
         if yes_ask <= max_pay and book.yes_ask_age() >= MIN_LEVEL_AGE_SEC:
             snipes.append(("yes", round(min(0.99, max_pay), 4), fpy,
                            (fpy - yes_ask) * 100.0, book.yes_ask_age()))
-    if no_ask is not None and no_ask >= 0.01 and MIN_FAIR_P <= fpn <= MAX_FAIR_P:
+    # NO side
+    if (no_ask is not None and no_ask >= 0.01
+            and MIN_FAIR_P <= fpn <= MAX_FAIR_P):
         max_pay = fpn - edge_dollars
         if no_ask <= max_pay and book.no_ask_age() >= MIN_LEVEL_AGE_SEC:
             snipes.append(("no", round(min(0.99, max_pay), 4), fpn,
@@ -443,6 +502,12 @@ def _maybe_snipe(ticker: str, market: dict, book: ob.Book,
     for side, limit_d, fair_p, edge_c, lvl_age in snipes:
         key = (ticker, side)
         if now - _last_snipe_ts[key] < SNIPE_COOLDOWN_SEC:
+            continue
+        # Block if we already fired the OPPOSITE side on this ticker today
+        # (avoids accumulating self-hedged-net-loss exposure when the
+        # underlying whipsaws across our fair).
+        if not _check_and_record_side(ticker, side):
+            log.info(f"  skipping {ticker} {side}: opposite side already fired today")
             continue
         _last_snipe_ts[key] = now
 
@@ -506,6 +571,9 @@ def main():
     log.info("move thresholds (bps/3s): %s",
              {a: round(v,2) for a,v in _MIN_MOVE_BPS.items()})
     log.info("coinflip filter: %.2f <= fair_p <= %.2f", MIN_FAIR_P, MAX_FAIR_P)
+    log.info("directional gate OFF: both sides eligible regardless of move direction")
+    log.info("opposite-side guard ON: won't fire NO on a ticker if we've fired YES today")
+    log.info("pricing model: V1 (constant σ + calibration.json)")
 
     accounts = load_accounts()
     if not accounts:
@@ -528,6 +596,7 @@ def main():
 
     # Crypto feeds + Kalshi orderbook
     btc_feed.start(); eth_feed.start(); sol_feed.start(); xrp_feed.start(); hype_feed.start()
+    _bnb_feed.start(); _doge_feed.start()
     # Use the FIRST account's credentials for the WS orderbook subscription
     # (it's just an authenticated read; doesn't depend on which account).
     ob.start(accounts[0].private_key, accounts[0].key_id, [])
@@ -552,10 +621,11 @@ def main():
                 refresh_balances(accounts)
                 last_balance_refresh = now
 
-            for sym in ("BTC","ETH","SOL","XRP","HYPE"):
+            for sym in ("BTC","ETH","SOL","XRP","HYPE","BNB","DOGE"):
                 p = _price_for_asset(sym)
                 if p is not None and _price_age_for_asset(sym) < 5.0:
-                    _record_price(sym, p)
+                    _record_price(sym, p)            # short window for move gate
+                    _record_price_for_vol(sym, p)    # long window for realized σ
 
             for ticker, market in list(open_mkts.items()):
                 asset = _asset_for_ticker(ticker)
