@@ -19,10 +19,15 @@ import os
 
 # Empirically tuned per-minute volatility (close-to-close std dev)
 ASSET_VOL_PER_MIN = {
-    "BTC": 0.0012,
-    "ETH": 0.0015,
-    "SOL": 0.0025,
-    "XRP": 0.0020,
+    "BTC":  0.0012,
+    "ETH":  0.0015,
+    "SOL":  0.0025,
+    "XRP":  0.0020,
+    "HYPE": 0.0030,  # newer/thinner token, higher vol; refine via fit_calibration_live after ~30 settled
+    "BNB":  0.0018,  # large cap, similar-to-ETH
+    "TON":  0.0025,  # medium cap
+    "DOGE": 0.0030,  # high-vol meme
+    "ADA":  0.0020,  # medium cap
 }
 
 

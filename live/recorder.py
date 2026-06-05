@@ -276,15 +276,167 @@ def _coinbase_run():
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+RETENTION_DAYS = int(os.environ.get("RECORDER_RETENTION_DAYS", "5"))
+MAX_FILE_MB    = int(os.environ.get("RECORDER_MAX_FILE_MB",    "300"))
+DISK_FREE_MIN_GB = float(os.environ.get("RECORDER_MIN_FREE_GB", "1.5"))
+
+
+def _disk_free_gb() -> float:
+    """Free space on the partition containing ROOT, in gigabytes."""
+    try:
+        st = os.statvfs(ROOT)
+        return (st.f_bavail * st.f_frsize) / (1024 ** 3)
+    except Exception:
+        return float("inf")
+
+
+def _rotate_if_oversize(writer: "DailyWriter"):
+    """Force-rotate the writer's current file if it exceeds MAX_FILE_MB.
+    The rotated file gets a .part-N suffix and is gzipped immediately."""
+    if writer.fh is None or writer.cur_date is None:
+        return
+    path = writer._path(writer.cur_date)
+    try:
+        size_mb = os.path.getsize(path) / (1024 * 1024)
+    except OSError:
+        return
+    if size_mb < MAX_FILE_MB:
+        return
+    # Find next .part-N suffix
+    n = 1
+    while True:
+        rotated = path + f".part-{n}"
+        if not os.path.exists(rotated) and not os.path.exists(rotated + ".gz"):
+            break
+        n += 1
+    try:
+        with writer.lock:
+            writer.fh.close()
+            os.rename(path, rotated)
+            writer.fh = open(path, "a", buffering=1)
+        # gzip the rotated chunk in background
+        threading.Thread(target=writer._gzip_file, args=(rotated,),
+                         daemon=True).start()
+        log.info(f"{writer.stream}: rotated at {size_mb:.0f}MB → "
+                 f"{os.path.basename(rotated)}")
+    except Exception as e:
+        log.warning(f"{writer.stream}: rotation failed: {e}")
+
+
+def _emergency_purge():
+    """When disk is critically low: delete the oldest .gz files first, then
+    if still tight, truncate the current jsonl to its last 10MB."""
+    free_gb = _disk_free_gb()
+    if free_gb >= DISK_FREE_MIN_GB:
+        return
+    log.warning(f"disk pressure: only {free_gb:.2f}GB free, purging")
+    # 1) delete oldest .gz files
+    gzips = []
+    for day_dir in os.listdir(ROOT):
+        day_path = os.path.join(ROOT, day_dir)
+        if not os.path.isdir(day_path):
+            continue
+        for fn in os.listdir(day_path):
+            if fn.endswith(".gz"):
+                full = os.path.join(day_path, fn)
+                gzips.append((os.path.getmtime(full), full))
+    gzips.sort()
+    for _, p in gzips:
+        if _disk_free_gb() >= DISK_FREE_MIN_GB:
+            break
+        try:
+            sz = os.path.getsize(p)
+            os.remove(p)
+            log.warning(f"purged old gz: {os.path.basename(p)} (-{sz//1024//1024}MB)")
+        except Exception:
+            pass
+    # 2) if still tight, truncate current jsonls
+    if _disk_free_gb() < DISK_FREE_MIN_GB:
+        for w in (kalshi_writer, crypto_writer):
+            if w.fh is None or w.cur_date is None:
+                continue
+            path = w._path(w.cur_date)
+            try:
+                with w.lock:
+                    w.fh.close()
+                    os.remove(path)
+                    w.fh = open(path, "a", buffering=1)
+                log.warning(f"emergency: truncated {os.path.basename(path)}")
+            except Exception:
+                pass
+
+
+def _retention_pass():
+    """Run frequently: rotate oversized current files, gzip past-day files,
+    delete .gz files older than RETENTION_DAYS, emergency purge if disk low."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # 1) Size-cap the currently-open files (the recurring failure mode)
+    _rotate_if_oversize(kalshi_writer)
+    _rotate_if_oversize(crypto_writer)
+
+    # 2) Daily rollover gzip + retention
+    try:
+        for day_dir in sorted(os.listdir(ROOT)):
+            day_path = os.path.join(ROOT, day_dir)
+            if not os.path.isdir(day_path):
+                continue
+            for fn in os.listdir(day_path):
+                full = os.path.join(day_path, fn)
+                # Gzip non-current-day plain .jsonl files (and any orphan .part-N)
+                is_old_jsonl = (fn.endswith(".jsonl") and day_dir != today) or \
+                               (".part-" in fn and not fn.endswith(".gz"))
+                if is_old_jsonl:
+                    gz = full + ".gz"
+                    if not os.path.exists(gz):
+                        try:
+                            with open(full, "rb") as fin, gzip.open(gz, "wb", compresslevel=6) as fout:
+                                shutil.copyfileobj(fin, fout, length=1024*1024)
+                            os.remove(full)
+                            log.info(f"gzipped {day_dir}/{fn}")
+                        except Exception as e:
+                            log.warning(f"gzip {day_dir}/{fn} failed: {e}")
+                # Delete files older than retention
+                try:
+                    dt = datetime.strptime(day_dir, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    age_days = (datetime.now(timezone.utc) - dt).days
+                    if age_days > RETENTION_DAYS:
+                        os.remove(full)
+                        log.info(f"deleted {day_dir}/{fn} ({age_days}d old)")
+                except Exception:
+                    pass
+            try:
+                if not os.listdir(day_path):
+                    os.rmdir(day_path)
+            except Exception:
+                pass
+    except Exception as e:
+        log.warning(f"retention pass error: {e}")
+
+    # 3) Emergency: if disk still tight, purge aggressively
+    _emergency_purge()
+
+
+def _retention_loop():
+    """Check every 60s.  Light when nothing to do; aggressive only when needed."""
+    while True:
+        try:
+            _retention_pass()
+        except Exception as e:
+            log.warning(f"retention loop error: {e}")
+        time.sleep(60)
+
+
 def main():
     os.makedirs(ROOT, exist_ok=True)
-    log.info(f"recorder start  root={ROOT}")
+    log.info(f"recorder start  root={ROOT}  retention={RETENTION_DAYS}d")
     env = dotenv_values(ENV_PATH)
     priv = kalshi_auth.load_private_key(env["KALSHI_PRIVATE_KEY"])
     key_id = env["KALSHI_API_KEY_ID"]
     t1 = threading.Thread(target=_kalshi_run, args=(priv, key_id), daemon=True)
     t2 = threading.Thread(target=_coinbase_run, daemon=True)
-    t1.start(); t2.start()
+    t3 = threading.Thread(target=_retention_loop, daemon=True)
+    t1.start(); t2.start(); t3.start()
     while True:
         time.sleep(60)
 

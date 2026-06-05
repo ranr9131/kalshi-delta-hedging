@@ -1,6 +1,11 @@
 """
 Kalshi market fetching and order placement.
 Field names confirmed from live API: yes_bid_dollars, yes_ask_dollars, no_ask_dollars.
+
+A module-level `requests.Session()` is used so that TLS handshakes are reused
+across calls.  Measured savings on AWS↔Kalshi: ~30ms per signed call (69ms →
+39ms median).  Critical for the sniper, where every millisecond between
+detecting a stale level and submitting the IOC matters.
 """
 
 import uuid
@@ -9,6 +14,23 @@ from kalshi_auth import make_auth_headers
 
 BASE_URL = "https://api.elections.kalshi.com"
 SERIES   = "KXBTC15M"
+
+# Module-level pooled session.  Reused across all HTTP calls in this file.
+# urllib3 keeps the underlying TCP/TLS connection alive between calls.
+_session = requests.Session()
+
+
+def warmup_session():
+    """Issue a no-op unauthenticated GET so the TCP+TLS handshake completes
+    before the first real order.  Call this at sniper boot to remove cold-
+    start lag from the first fire."""
+    try:
+        _session.get(f"{BASE_URL}/trade-api/v2/markets",
+                     params={"series_ticker": SERIES, "status": "open", "limit": 1},
+                     timeout=10)
+        return True
+    except Exception:
+        return False
 
 FILL_BUFFER_CENTS = 5  # absorbs ~300ms price movement between WS read and order landing
 # History: 2c → 5c (raised after rested-and-cancelled failures on fast markets)
@@ -36,7 +58,7 @@ def get_open_market() -> dict | None:
       open_time        - ISO string
       close_time       - ISO string
     """
-    resp = requests.get(
+    resp = _session.get(
         f"{BASE_URL}/trade-api/v2/markets",
         params={"series_ticker": SERIES, "status": "open"},
         timeout=10,
@@ -109,7 +131,7 @@ def place_order(
         body["expiration_ts"] = int(_time.time()) + 3
 
     headers = make_auth_headers(private_key, api_key_id, "POST", path)
-    resp = requests.post(BASE_URL + path, json=body, headers=headers, timeout=10)
+    resp = _session.post(BASE_URL + path, json=body, headers=headers, timeout=10)
     if not resp.ok:
         raise requests.HTTPError(
             f"{resp.status_code} {resp.reason}: {resp.text}", response=resp
@@ -122,7 +144,7 @@ def cancel_order(private_key, api_key_id: str, order_id: str) -> bool:
     path = f"/trade-api/v2/portfolio/orders/{order_id}"
     headers = make_auth_headers(private_key, api_key_id, "DELETE", path)
     try:
-        resp = requests.delete(BASE_URL + path, headers=headers, timeout=10)
+        resp = _session.delete(BASE_URL + path, headers=headers, timeout=10)
         return resp.ok
     except Exception:
         return False
@@ -131,7 +153,7 @@ def cancel_order(private_key, api_key_id: str, order_id: str) -> bool:
 def get_order_status(private_key, api_key_id: str, order_id: str) -> dict:
     path = f"/trade-api/v2/portfolio/orders/{order_id}"
     headers = make_auth_headers(private_key, api_key_id, "GET", path)
-    resp = requests.get(BASE_URL + path, headers=headers, timeout=10)
+    resp = _session.get(BASE_URL + path, headers=headers, timeout=10)
     resp.raise_for_status()
     return resp.json().get("order", {})
 
@@ -145,7 +167,7 @@ def get_order_filled_stake(private_key, api_key_id: str, order_id: str) -> float
     path = "/trade-api/v2/portfolio/fills"
     headers = make_auth_headers(private_key, api_key_id, "GET", path)
     try:
-        resp = requests.get(
+        resp = _session.get(
             BASE_URL + path,
             params={"order_id": order_id, "limit": 100},
             headers=headers, timeout=10,
@@ -173,7 +195,7 @@ def get_market_result(ticker: str) -> str | None:
     Return 'yes' or 'no' if market is finalized, else None. No auth required.
     Poll this after close_time until it returns non-None.
     """
-    resp = requests.get(
+    resp = _session.get(
         f"{BASE_URL}/trade-api/v2/markets/{ticker}",
         timeout=10,
     )
@@ -189,7 +211,7 @@ def get_balance(private_key, api_key_id: str) -> float | None:
     path = "/trade-api/v2/portfolio/balance"
     headers = make_auth_headers(private_key, api_key_id, "GET", path)
     try:
-        resp = requests.get(BASE_URL + path, headers=headers, timeout=10)
+        resp = _session.get(BASE_URL + path, headers=headers, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         balance_cents = data.get("balance", 0)

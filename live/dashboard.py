@@ -26,6 +26,10 @@ LOG_PATH = os.environ.get(
     "LOG_PATH",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "snipes.csv"),
 )
+LOG_V2_PATH = os.environ.get(
+    "LOG_V2_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "snipes_v2.csv"),
+)
 SETTLE_PATH = os.environ.get(
     "SETTLE_PATH",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "settlements.csv"),
@@ -34,15 +38,38 @@ PORT = int(os.environ.get("PORT", "8080"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 
 app = Flask(__name__)
+# Don't try to sort_keys — our row dicts can have heterogeneous keys
+# (the _pnl/_status decorations added at API time), and sort_keys=True
+# crashes if any None ever sneaks in.  Order is irrelevant for JS clients.
+app.json.sort_keys = False
 
 
 # ── CSV helpers ────────────────────────────────────────────────────────────
 
-def _read_all_rows() -> List[Dict[str, str]]:
-    if not os.path.exists(LOG_PATH):
+def _read_csv_rows(path: str) -> List[Dict[str, str]]:
+    """Read CSV, strip out any None keys (csv.DictReader puts extra columns
+    from malformed rows into key=None, which then crashes Flask's
+    sort_keys=True JSON encoding).  Also skip rows missing critical fields."""
+    if not os.path.exists(path):
         return []
-    with open(LOG_PATH, newline="") as f:
-        return list(csv.DictReader(f))
+    out = []
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            # Drop the None key (csv puts extra fields here)
+            r.pop(None, None)
+            # Skip rows that lost their primary key
+            if not r.get("ts_iso") or not r.get("ticker"):
+                continue
+            out.append(r)
+    return out
+
+
+def _read_all_rows() -> List[Dict[str, str]]:
+    return _read_csv_rows(LOG_PATH)
+
+
+def _read_v2_rows() -> List[Dict[str, str]]:
+    return _read_csv_rows(LOG_V2_PATH)
 
 
 def _read_settlements() -> Dict[str, Dict[str, str]]:
@@ -228,6 +255,24 @@ def api_settlements():
     return jsonify(_read_settlements())
 
 
+@app.route("/api/v2")
+def api_v2():
+    """Same shape as /api/recent but reads snipes_v2.csv.  Used by the
+    dashboard to render the v2 comparison panel + chart line."""
+    rows = _read_v2_rows()
+    settlements = _read_settlements()
+    last = rows[-200:][::-1]
+    for r in last:
+        pnl, st = _row_pnl(r, settlements.get(r.get("ticker", "")))
+        r["_pnl"]    = pnl
+        r["_status"] = st
+    return jsonify({
+        "rows":       last,
+        "stats":      _aggregate(rows, settlements),
+        "pnl_series": _pnl_series(rows, settlements),
+    })
+
+
 @app.route("/events")
 def events():
     """SSE stream: emit each newly-appended CSV row.
@@ -398,7 +443,7 @@ header .right { display: flex; align-items: center; gap: 16px; font-size: 12px; 
 }
 
 .asset-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
   padding: 0 22px 12px 22px;
 }
 .asset {
@@ -413,10 +458,11 @@ header .right { display: flex; align-items: center; gap: 16px; font-size: 12px; 
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--bar);
 }
-.asset.BTC { --bar: var(--btc); }
-.asset.ETH { --bar: var(--eth); }
-.asset.SOL { --bar: var(--sol); }
-.asset.XRP { --bar: var(--xrp); }
+.asset.BTC  { --bar: var(--btc); }
+.asset.ETH  { --bar: var(--eth); }
+.asset.SOL  { --bar: var(--sol); }
+.asset.XRP  { --bar: var(--xrp); }
+.asset.HYPE { --bar: #ff77c6; }
 .asset .name { font-weight: 700; letter-spacing: 1px; color: var(--bar); }
 .asset .grid { display: grid; grid-template-columns: 1fr 1fr; margin-top: 4px; font-size: 11px; }
 .asset .grid div { color: var(--txt-dim); }
@@ -458,10 +504,11 @@ main {
   text-align: center; font-size: 11px;
   background: rgba(255,255,255,0.03);
 }
-.row.BTC .asset-tag { color: var(--btc); border: 1px solid var(--btc); }
-.row.ETH .asset-tag { color: var(--eth); border: 1px solid var(--eth); }
-.row.SOL .asset-tag { color: var(--sol); border: 1px solid var(--sol); }
-.row.XRP .asset-tag { color: var(--xrp); border: 1px solid var(--xrp); }
+.row.BTC  .asset-tag { color: var(--btc); border: 1px solid var(--btc); }
+.row.ETH  .asset-tag { color: var(--eth); border: 1px solid var(--eth); }
+.row.SOL  .asset-tag { color: var(--sol); border: 1px solid var(--sol); }
+.row.XRP  .asset-tag { color: var(--xrp); border: 1px solid var(--xrp); }
+.row.HYPE .asset-tag { color: #ff77c6;    border: 1px solid #ff77c6; }
 .row .side {
   font-weight: 700; text-align: center; padding: 3px;
   border-radius: 4px; font-size: 11px;
@@ -537,6 +584,30 @@ main {
       <div class="sub" id="s-eta-sub">15-min cycle</div></div>
   </div>
 
+  <div class="stats-row" style="border-top: 1px dashed rgba(255,255,255,0.04); padding-top: 8px;">
+    <div class="stat pnl"><div class="label" style="color:#b59bff">V2 Realized PnL</div>
+      <div class="value" id="s-pnl-v2">$0</div>
+      <div class="sub" id="s-pnl-v2-sub">v2: realized σ + directional gate</div></div>
+    <div class="stat"><div class="label">V2 Win rate</div>
+      <div class="value" id="s-wr-v2">—</div>
+      <div class="sub" id="s-wr-v2-sub">0 W / 0 L</div></div>
+    <div class="stat"><div class="label">V2 Open</div>
+      <div class="value" id="s-open-v2">$0</div>
+      <div class="sub" id="s-open-v2-sub">0 unsettled</div></div>
+    <div class="stat"><div class="label">V2 Snipes</div>
+      <div class="value" id="s-total-v2">0</div>
+      <div class="sub">since v2 launched</div></div>
+    <div class="stat"><div class="label">V2 Rate</div>
+      <div class="value" id="s-rate-v2">0.0</div>
+      <div class="sub">snipes / min (last 5)</div></div>
+    <div class="stat"><div class="label">V2 Avg edge</div>
+      <div class="value" id="s-edge-v2">0¢</div>
+      <div class="sub">model vs market</div></div>
+    <div class="stat"><div class="label">V2 ROI</div>
+      <div class="value" id="s-roi-v2">—</div>
+      <div class="sub" id="s-roi-v2-sub">on wagered</div></div>
+  </div>
+
   <div class="chart-row">
     <div class="head">
       <span class="label">Cumulative realized PnL</span>
@@ -556,6 +627,9 @@ main {
       <div class="grid"><div>count <b data-k="count">0</b></div><div>edge <b data-k="avg_edge">0¢</b></div>
       <div>pnl <b data-k="pnl">$0</b></div><div>W/L <b data-k="wl">0/0</b></div></div></div>
     <div class="asset XRP" data-asset="XRP"><div class="name">XRP</div>
+      <div class="grid"><div>count <b data-k="count">0</b></div><div>edge <b data-k="avg_edge">0¢</b></div>
+      <div>pnl <b data-k="pnl">$0</b></div><div>W/L <b data-k="wl">0/0</b></div></div></div>
+    <div class="asset HYPE" data-asset="HYPE"><div class="name">HYPE</div>
       <div class="grid"><div>count <b data-k="count">0</b></div><div>edge <b data-k="avg_edge">0¢</b></div>
       <div>pnl <b data-k="pnl">$0</b></div><div>W/L <b data-k="wl">0/0</b></div></div></div>
   </div>
@@ -703,16 +777,17 @@ function applySettlements(map){
   });
 }
 
-function renderPnlChart(series){
+function renderPnlChart(seriesV1, seriesV2){
   const svg = $("pnl-chart");
   const meta = $("chart-meta");
   if (!svg) return;
 
-  // Compute layout in user-space (no clientWidth → no flicker on resize).
   const VW = 1000, VH = 160;
   svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`);
 
-  if (!series || series.length === 0){
+  const sV1 = seriesV1 || [];
+  const sV2 = seriesV2 || [];
+  if (sV1.length === 0 && sV2.length === 0){
     svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle"
         fill="#7a8597" font-size="13" font-family="inherit">
         Waiting for first settled snipe…</text>`;
@@ -724,31 +799,43 @@ function renderPnlChart(series){
   const W = VW - pad.l - pad.r;
   const H = VH - pad.t - pad.b;
 
-  const pnls = series.map(d => d.pnl);
-  const finalPnl = pnls[pnls.length - 1];
-  const peak  = Math.max(0, ...pnls);
-  const trough = Math.min(0, ...pnls);
+  // Shared y-axis range: min of all troughs, max of all peaks, plus zero
+  const allPnls = [...sV1.map(d=>d.pnl), ...sV2.map(d=>d.pnl), 0];
+  const peak = Math.max(...allPnls);
+  const trough = Math.min(...allPnls);
   const range = (peak - trough) || 1;
 
-  // X: just spread points evenly so the line shape doesn't squash on time gaps
-  const x = (i) => pad.l + (series.length > 1 ? (i / (series.length - 1)) * W : W/2);
+  // Each series uses its OWN x-axis (its own time span).  We map each
+  // series's own length to [pad.l, VW-pad.r] for shape clarity.
+  function xFor(series){
+    return (i) => pad.l + (series.length > 1 ? (i / (series.length - 1)) * W : W/2);
+  }
   const y = (p) => pad.t + H - ((p - trough) / range) * H;
   const zeroY = y(0);
-
-  const ptStr = series.map((d, i) => `${x(i).toFixed(1)},${y(d.pnl).toFixed(1)}`).join(" ");
-  const lineCol = finalPnl >= 0 ? "#4cf0c2" : "#ff5677";
-  const fillCol = finalPnl >= 0 ? "rgba(76,240,194,0.13)" : "rgba(255,86,119,0.13)";
-
-  // Polygon for shading between line and zero line
-  const polyFill = series.length >= 2
-    ? `${x(0).toFixed(1)},${zeroY.toFixed(1)} ${ptStr} ${x(series.length-1).toFixed(1)},${zeroY.toFixed(1)}`
-    : "";
-
-  // Marker on most-recent point
-  const lastX = x(series.length - 1).toFixed(1);
-  const lastY = y(finalPnl).toFixed(1);
-
   const fmt$ = (v) => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
+
+  function renderLine(series, lineCol, fillCol, isV1){
+    if (series.length === 0) return "";
+    const x = xFor(series);
+    const ptStr = series.map((d, i) => `${x(i).toFixed(1)},${y(d.pnl).toFixed(1)}`).join(" ");
+    const finalPnl = series[series.length - 1].pnl;
+    const polyFill = series.length >= 2
+      ? `${x(0).toFixed(1)},${zeroY.toFixed(1)} ${ptStr} ${x(series.length-1).toFixed(1)},${zeroY.toFixed(1)}`
+      : "";
+    const lastX = x(series.length - 1).toFixed(1);
+    const lastY = y(finalPnl).toFixed(1);
+    const labelX = (parseFloat(lastX) + 8).toFixed(1);
+    const labelY = (parseFloat(lastY) + 4 + (isV1 ? 0 : 14)).toFixed(1);
+    return `
+      ${polyFill ? `<polygon points="${polyFill}" fill="${fillCol}" />` : ""}
+      <polyline points="${ptStr}" fill="none" stroke="${lineCol}"
+                stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
+      <circle cx="${lastX}" cy="${lastY}" r="4" fill="${lineCol}" />
+      <text x="${labelX}" y="${labelY}" text-anchor="start" fill="${lineCol}"
+            font-size="12" font-family="inherit" font-weight="700">
+        ${isV1 ? 'V1 ' : 'V2 '}${fmt$(finalPnl)}
+      </text>`;
+  }
 
   const ticks = [];
   if (peak > 0)  ticks.push(peak);
@@ -768,20 +855,23 @@ function renderPnlChart(series){
       </text>`;
   }
 
+  // v1 = green/red, v2 = purple
+  const v1FinalPos = sV1.length > 0 ? sV1[sV1.length-1].pnl >= 0 : true;
+  const v1Col = v1FinalPos ? "#4cf0c2" : "#ff5677";
+  const v1Fill = v1FinalPos ? "rgba(76,240,194,0.13)" : "rgba(255,86,119,0.13)";
+  const v2Col = "#b59bff";
+  const v2Fill = "rgba(181,155,255,0.10)";
+
   svg.innerHTML = `
     ${labels}
-    ${polyFill ? `<polygon points="${polyFill}" fill="${fillCol}" />` : ""}
-    <polyline points="${ptStr}" fill="none" stroke="${lineCol}"
-              stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
-    <circle cx="${lastX}" cy="${lastY}" r="4" fill="${lineCol}" />
-    <text x="${(parseFloat(lastX) + 8).toFixed(1)}" y="${(parseFloat(lastY) + 4).toFixed(1)}"
-          text-anchor="start" fill="${lineCol}" font-size="13"
-          font-family="inherit" font-weight="700">${fmt$(finalPnl)}</text>
+    ${renderLine(sV1, v1Col, v1Fill, true)}
+    ${renderLine(sV2, v2Col, v2Fill, false)}
   `;
 
-  const firstT = (series[0].t || "").slice(11, 19);
-  const lastT  = (series[series.length-1].t || "").slice(11, 19);
-  meta.textContent = `${series.length} settled • ${firstT}Z → ${lastT}Z`;
+  const parts = [];
+  if (sV1.length) parts.push(`V1: ${sV1.length} settled`);
+  if (sV2.length) parts.push(`V2: ${sV2.length} settled`);
+  meta.textContent = parts.join("  •  ");
 }
 
 function applyStats(stats){
@@ -811,7 +901,7 @@ function applyStats(stats){
   $("s-open").textContent = fmt$(stats.open_stake);
   $("s-open-sub").textContent = `${stats.open_count||0} unsettled`;
 
-  for (const a of ["BTC","ETH","SOL","XRP"]){
+  for (const a of ["BTC","ETH","SOL","XRP","HYPE"]){
     const card = document.querySelector(`.asset[data-asset="${a}"]`);
     const d = stats.by_asset?.[a];
     card.querySelector('[data-k="count"]').textContent = d ? d.count : 0;
@@ -830,14 +920,54 @@ function applyStats(stats){
   }
 }
 
+function applyStatsV2(stats){
+  $("s-total-v2").textContent = stats.total;
+  $("s-rate-v2").textContent  = fmtN(stats.snipes_per_min_recent, 1);
+  $("s-edge-v2").textContent  = fmtC(stats.avg_edge);
+
+  const pnl = Number(stats.realized_pnl || 0);
+  const pnlEl = $("s-pnl-v2");
+  pnlEl.textContent = (pnl >= 0 ? "+" : "") + fmt$(pnl);
+  pnlEl.classList.toggle("pos", pnl > 0);
+  pnlEl.classList.toggle("neg", pnl < 0);
+  $("s-pnl-v2-sub").textContent =
+    `${stats.settled_count||0} settled • ${((stats.roi||0)*100).toFixed(1)}% ROI`;
+
+  const wr = stats.settled_count > 0
+    ? ((stats.win_rate || 0) * 100).toFixed(1) + "%" : "—";
+  $("s-wr-v2").textContent = wr;
+  $("s-wr-v2-sub").textContent =
+    `${stats.win_count||0} W / ${stats.loss_count||0} L` +
+    (stats.unknown_count ? ` • ${stats.unknown_count} ?` : "");
+
+  $("s-open-v2").textContent = fmt$(stats.open_stake);
+  $("s-open-v2-sub").textContent = `${stats.open_count||0} unsettled`;
+
+  $("s-roi-v2").textContent = stats.settled_count > 0
+    ? ((stats.roi||0) * 100).toFixed(1) + "%" : "—";
+}
+
+let lastSeries = {v1: [], v2: []};
+
+function fetchAll(initial){
+  Promise.all([
+    fetch("/api/recent").then(r => r.json()),
+    fetch("/api/v2").then(r => r.json()),
+  ]).then(([d1, d2]) => {
+    applyStats(d1.stats);
+    applyStatsV2(d2.stats);
+    lastSeries.v1 = d1.pnl_series || [];
+    lastSeries.v2 = d2.pnl_series || [];
+    renderPnlChart(lastSeries.v1, lastSeries.v2);
+    if (initial){
+      // First load only: replay last 200 v1 rows (no animation)
+      for (const r of d1.rows.slice().reverse()) addRow(r, false);
+    }
+  });
+}
+
 // 1) Initial load
-fetch("/api/recent").then(r => r.json()).then(data => {
-  applyStats(data.stats);
-  renderPnlChart(data.pnl_series || []);
-  // The CSV "rows" are already most-recent-first; addRow inserts to top, so
-  // iterate from oldest→newest to end up with most-recent on top.
-  for (const r of data.rows.slice().reverse()) addRow(r, false);
-});
+fetchAll(true);
 
 // 2) Live stream
 let es = null, statsTimer = null;
@@ -860,13 +990,8 @@ function connect(){
 }
 connect();
 
-// 3) Periodically refresh stats + chart
-setInterval(() => {
-  fetch("/api/recent").then(r => r.json()).then(d => {
-    applyStats(d.stats);
-    renderPnlChart(d.pnl_series || []);
-  });
-}, 5000);
+// 3) Periodically refresh stats + chart (covers both v1 and v2)
+setInterval(() => { fetchAll(false); }, 5000);
 
 // 4) Periodically refresh settlement map and patch any settled rows.
 // 2-second cadence so the row flips within ~2s of the settler writing to

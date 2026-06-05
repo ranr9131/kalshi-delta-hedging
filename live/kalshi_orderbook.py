@@ -69,28 +69,34 @@ class Book:
 
     def yes_ask_age(self) -> float:
         """Seconds since the best YES ask (= 1.0 − max no_bid) was last touched."""
-        if not self.no_levels: return float("inf")
-        best_no_bid = max((p for p, q in self.no_levels.items() if q > 0), default=None)
-        if best_no_bid is None: return float("inf")
+        items = list(self.no_levels.items())
+        ps = [p for p, q in items if q > 0]
+        if not ps: return float("inf")
+        best_no_bid = max(ps)
         ts = self.no_level_ts.get(best_no_bid, 0.0)
         return time.time() - ts if ts else float("inf")
 
     def no_ask_age(self) -> float:
-        if not self.yes_levels: return float("inf")
-        best_yes_bid = max((p for p, q in self.yes_levels.items() if q > 0), default=None)
-        if best_yes_bid is None: return float("inf")
+        items = list(self.yes_levels.items())
+        ps = [p for p, q in items if q > 0]
+        if not ps: return float("inf")
+        best_yes_bid = max(ps)
         ts = self.yes_level_ts.get(best_yes_bid, 0.0)
         return time.time() - ts if ts else float("inf")
 
     # ── Best-of-book ────────────────────────────────────────────────────
+    # Each method snapshots the dict via list() at the start.  list(d.items())
+    # is a single C-level call protected by the GIL → atomic against the WS
+    # thread's _apply_delta mutations.  Without this, we hit
+    # "RuntimeError: dictionary changed size during iteration" sporadically.
     def yes_bid(self) -> float | None:
-        if not self.yes_levels: return None
-        ps = [p for p, q in self.yes_levels.items() if q > 0]
+        items = list(self.yes_levels.items())
+        ps = [p for p, q in items if q > 0]
         return max(ps) if ps else None
 
     def no_bid(self) -> float | None:
-        if not self.no_levels: return None
-        ps = [p for p, q in self.no_levels.items() if q > 0]
+        items = list(self.no_levels.items())
+        ps = [p for p, q in items if q > 0]
         return max(ps) if ps else None
 
     def yes_ask(self) -> float | None:
@@ -104,23 +110,26 @@ class Book:
 
     # ── Sorted ladders ──────────────────────────────────────────────────
     def yes_asks_sorted(self) -> List[Tuple[float, float]]:
-        """Sorted [(price_dollars, qty)] of YES asks ascending."""
-        out = [(round(1.0 - p, 4), q) for p, q in self.no_levels.items() if q > 0]
+        items = list(self.no_levels.items())
+        out = [(round(1.0 - p, 4), q) for p, q in items if q > 0]
         out.sort(key=lambda t: t[0])
         return out
 
     def no_asks_sorted(self) -> List[Tuple[float, float]]:
-        out = [(round(1.0 - p, 4), q) for p, q in self.yes_levels.items() if q > 0]
+        items = list(self.yes_levels.items())
+        out = [(round(1.0 - p, 4), q) for p, q in items if q > 0]
         out.sort(key=lambda t: t[0])
         return out
 
     def yes_bids_sorted(self) -> List[Tuple[float, float]]:
-        out = [(p, q) for p, q in self.yes_levels.items() if q > 0]
+        items = list(self.yes_levels.items())
+        out = [(p, q) for p, q in items if q > 0]
         out.sort(key=lambda t: -t[0])
         return out
 
     def no_bids_sorted(self) -> List[Tuple[float, float]]:
-        out = [(p, q) for p, q in self.no_levels.items() if q > 0]
+        items = list(self.no_levels.items())
+        out = [(p, q) for p, q in items if q > 0]
         out.sort(key=lambda t: -t[0])
         return out
 

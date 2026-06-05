@@ -30,6 +30,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH    = os.environ.get("LOG_PATH",    os.path.join(ROOT, "snipes.csv"))
 RESULT_PATH = os.environ.get("RESULT_PATH", os.path.join(ROOT, "settlements.csv"))
+# Extra snipe-log files to pull tickers from (e.g. v2 sniper).  Comma-separated.
+EXTRA_LOGS  = [p for p in os.environ.get("EXTRA_LOGS", "").split(",") if p]
+# Sensible default: include snipes_v2.csv if it exists.
+_default_v2 = os.path.join(ROOT, "snipes_v2.csv")
+if not EXTRA_LOGS and os.path.exists(_default_v2):
+    EXTRA_LOGS.append(_default_v2)
 
 KALSHI_BASE = "https://api.elections.kalshi.com"
 POLL_INTERVAL_SEC      = float(os.environ.get("POLL_INTERVAL_SEC", "30"))
@@ -47,10 +53,21 @@ log = logging.getLogger("settler")
 
 
 def _read_snipes() -> list[dict]:
-    if not os.path.exists(LOG_PATH):
-        return []
-    with open(LOG_PATH, newline="") as f:
-        return list(csv.DictReader(f))
+    """Read snipes from LOG_PATH plus any EXTRA_LOGS (e.g. snipes_v2.csv).
+    Filter out malformed rows (missing ticker or None keys from extra columns)."""
+    rows: list[dict] = []
+    for path in [LOG_PATH] + EXTRA_LOGS:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, newline="") as f:
+                for r in csv.DictReader(f):
+                    r.pop(None, None)
+                    if r.get("ticker"):
+                        rows.append(r)
+        except Exception:
+            pass
+    return rows
 
 
 def _read_settlements() -> Dict[str, dict]:

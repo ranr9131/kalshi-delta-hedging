@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kalshi_auth
 import kalshi_orderbook as ob
 import kalshi_trade
-import btc_feed, eth_feed, sol_feed, xrp_feed
+import btc_feed, eth_feed, sol_feed, xrp_feed, hype_feed
 from fair_price_model import fair_p_yes, fair_p_no, ASSET_VOL_PER_MIN
 
 
@@ -60,7 +60,12 @@ MIN_EDGE_CENTS      = int(os.environ.get("MIN_EDGE_CENTS", "5"))
 MAX_STAKE_PER_SNIPE = float(os.environ.get("MAX_STAKE_PER_SNIPE", "5.0"))
 MIN_MINUTES_LEFT    = float(os.environ.get("MIN_MINUTES_LEFT", "0.5"))
 MAX_MINUTES_LEFT    = float(os.environ.get("MAX_MINUTES_LEFT", "14.0"))
-TICK_SECONDS        = float(os.environ.get("TICK_SECONDS", "0.2"))
+TICK_SECONDS        = float(os.environ.get("TICK_SECONDS", "0.05"))
+
+# Hard daily-loss circuit breaker.  Once today's realized PnL is below
+# −DAILY_LOSS_LIMIT, the sniper stops firing for the rest of the UTC day.
+# Resets automatically at 00:00 UTC.  Set to 0 to disable.
+DAILY_LOSS_LIMIT    = float(os.environ.get("DAILY_LOSS_LIMIT", "100.0"))
 
 # ── Coinflip-zone filter ────────────────────────────────────────────────────
 # Only fire when our model's fair probability sits inside this range.  Outside
@@ -100,9 +105,9 @@ def _min_move_bps_for(asset: str) -> float:
     return typical_bps * MOVE_GATE_MULT
 
 
-_MIN_MOVE_BPS = {a: _min_move_bps_for(a) for a in ("BTC", "ETH", "SOL", "XRP")}
+_MIN_MOVE_BPS = {a: _min_move_bps_for(a) for a in ("BTC", "ETH", "SOL", "XRP", "HYPE")}
 SERIES              = os.environ.get(
-    "SERIES", "KXBTC15M,KXETH15M,KXSOL15M,KXXRP15M"
+    "SERIES", "KXBTC15M,KXETH15M,KXSOL15M,KXXRP15M,KXHYPE15M"
 ).split(",")
 LOG_PATH            = os.environ.get(
     "LOG_PATH",
@@ -129,10 +134,11 @@ log = logging.getLogger("sniper")
 # ── Series → asset symbol ───────────────────────────────────────────────────
 
 SERIES_TO_ASSET = {
-    "KXBTC15M": "BTC",
-    "KXETH15M": "ETH",
-    "KXSOL15M": "SOL",
-    "KXXRP15M": "XRP",
+    "KXBTC15M":  "BTC",
+    "KXETH15M":  "ETH",
+    "KXSOL15M":  "SOL",
+    "KXXRP15M":  "XRP",
+    "KXHYPE15M": "HYPE",
 }
 
 
@@ -144,18 +150,20 @@ def _asset_for_ticker(ticker: str) -> Optional[str]:
 
 
 def _price_for_asset(asset: str) -> Optional[float]:
-    if asset == "BTC": return btc_feed.get_price()
-    if asset == "ETH": return eth_feed.get_price()
-    if asset == "SOL": return sol_feed.get_price()
-    if asset == "XRP": return xrp_feed.get_price()
+    if asset == "BTC":  return btc_feed.get_price()
+    if asset == "ETH":  return eth_feed.get_price()
+    if asset == "SOL":  return sol_feed.get_price()
+    if asset == "XRP":  return xrp_feed.get_price()
+    if asset == "HYPE": return hype_feed.get_price()
     return None
 
 
 def _price_age_for_asset(asset: str) -> float:
-    if asset == "BTC": return btc_feed.get_price_age()
-    if asset == "ETH": return eth_feed.get_price_age()
-    if asset == "SOL": return sol_feed.get_price_age()
-    if asset == "XRP": return xrp_feed.get_price_age()
+    if asset == "BTC":  return btc_feed.get_price_age()
+    if asset == "ETH":  return eth_feed.get_price_age()
+    if asset == "SOL":  return sol_feed.get_price_age()
+    if asset == "XRP":  return xrp_feed.get_price_age()
+    if asset == "HYPE": return hype_feed.get_price_age()
     return float("inf")
 
 
@@ -237,6 +245,90 @@ def _log_init():
 
 _last_snipe_ts: Dict[tuple, float] = defaultdict(float)
 
+# Cached today-PnL (recomputed at most every 15s — reading CSVs every tick
+# would be wasteful).  Reset implicitly at UTC midnight because the date
+# filter sees a new day's rows.
+_pnl_cache_value: float = 0.0
+_pnl_cache_ts: float    = 0.0
+_pnl_cache_date: str    = ""
+_pnl_breached:  bool    = False
+
+SETTLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "settlements.csv")
+
+
+def _today_realized_pnl() -> float:
+    """Realized PnL for V1 LIVE snipes settled today UTC.  Cached 15s."""
+    global _pnl_cache_value, _pnl_cache_ts, _pnl_cache_date
+    now = time.time()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Force recompute on UTC date roll-over
+    if today != _pnl_cache_date:
+        _pnl_cache_ts = 0.0
+    if now - _pnl_cache_ts < 15.0:
+        return _pnl_cache_value
+
+    settlements: Dict[str, dict] = {}
+    if os.path.exists(SETTLE_PATH):
+        try:
+            with open(SETTLE_PATH, newline="") as f:
+                for r in csv.DictReader(f):
+                    if r.get("ticker"):
+                        settlements[r["ticker"]] = r
+        except Exception:
+            pass
+
+    pnl = 0.0
+    if os.path.exists(LOG_PATH):
+        try:
+            with open(LOG_PATH, newline="") as f:
+                for r in csv.DictReader(f):
+                    if r.get("mode") != "live":
+                        continue
+                    ts = r.get("ts_iso", "")
+                    if not ts.startswith(today):
+                        continue
+                    s = settlements.get(r.get("ticker", ""))
+                    if not s:
+                        continue
+                    result = (s.get("result") or "").lower()
+                    if result not in ("yes", "no"):
+                        continue
+                    try:
+                        qty   = float(r.get("qty") or 0)
+                        stake = float(r.get("stake_dollars") or 0)
+                    except Exception:
+                        continue
+                    if r.get("side") == result:
+                        pnl += (qty - stake)
+                    else:
+                        pnl -= stake
+        except Exception:
+            pass
+
+    _pnl_cache_value = pnl
+    _pnl_cache_ts    = now
+    _pnl_cache_date  = today
+    return pnl
+
+
+def _loss_limit_check() -> bool:
+    """Return True if firing is allowed.  Logs once per state change."""
+    global _pnl_breached
+    if DAILY_LOSS_LIMIT <= 0:
+        return True
+    pnl = _today_realized_pnl()
+    breached_now = pnl <= -DAILY_LOSS_LIMIT
+    if breached_now and not _pnl_breached:
+        log.warning("DAILY LOSS LIMIT BREACHED — today realized PnL $%+.2f "
+                    "<= -$%.2f. HALTING fires until UTC midnight.",
+                    pnl, DAILY_LOSS_LIMIT)
+        _pnl_breached = True
+    elif not breached_now and _pnl_breached:
+        log.info("daily loss limit cleared (PnL $%+.2f) — fires resumed", pnl)
+        _pnl_breached = False
+    return not breached_now
+
 # Rolling crypto price history per asset: deque[(ts, price)] last 10 sec.
 _price_hist: Dict[str, Deque[Tuple[float, float]]] = defaultdict(
     lambda: deque(maxlen=200)
@@ -277,6 +369,12 @@ def _maybe_snipe(
 ):
     """All prices in float dollars (probability units).  We log edge in
     cents because that's the human-readable unit."""
+    # Daily-loss circuit breaker — checks BEFORE any other gate to ensure
+    # we never fire after the limit is hit, even if all other conditions
+    # would have aligned.  Cheap (cached) so safe at 50ms tick rate.
+    if not _loss_limit_check():
+        return
+
     asset  = _asset_for_ticker(ticker)
     strike = _strike(market)
     if asset is None or strike is None:
@@ -408,8 +506,17 @@ def main():
 
     log.info(
         f"sniper start  PAPER_MODE={PAPER_MODE}  series={SERIES}  "
-        f"min_edge={MIN_EDGE_CENTS}¢  max_stake=${MAX_STAKE_PER_SNIPE}"
+        f"min_edge={MIN_EDGE_CENTS}¢  max_stake=${MAX_STAKE_PER_SNIPE}  "
+        f"tick={TICK_SECONDS*1000:.0f}ms  "
+        f"daily_loss_limit=${DAILY_LOSS_LIMIT:.0f}"
     )
+
+    # Pre-warm the Kalshi REST session so the first real order doesn't
+    # eat a cold TLS handshake (~30ms saved).
+    if kalshi_trade.warmup_session():
+        log.info("kalshi session pre-warmed (TLS handshake done)")
+    else:
+        log.warning("kalshi session warmup failed (not fatal — will retry on first call)")
     log.info(
         "move thresholds (bps over %.1fs, mult=%.2f): %s",
         MOVE_WINDOW_SEC, MOVE_GATE_MULT,
@@ -420,7 +527,7 @@ def main():
     )
 
     # Crypto feeds
-    btc_feed.start(); eth_feed.start(); sol_feed.start(); xrp_feed.start()
+    btc_feed.start(); eth_feed.start(); sol_feed.start(); xrp_feed.start(); hype_feed.start()
 
     # Kalshi orderbook WS
     ob.start(private_key, api_key_id, [])
@@ -446,7 +553,7 @@ def main():
                 last_market_refresh = now
 
             # ── Refresh rolling crypto history once per tick ───────────
-            for sym in ("BTC", "ETH", "SOL", "XRP"):
+            for sym in ("BTC", "ETH", "SOL", "XRP", "HYPE"):
                 p = _price_for_asset(sym)
                 if p is not None and _price_age_for_asset(sym) < 5.0:
                     _record_price(sym, p)
