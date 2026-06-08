@@ -1,25 +1,25 @@
 {
   "_meta": {
     "source": "fit_v3.py",
-    "train_cut": "2026-06-05T23:00:00Z",
-    "n_train": 588814
+    "train_cut": "2026-06-06T01:30:00Z",
+    "n_train": 613018
   },
   "assets": {
     "BTC": {
       "by_family": {
         "15m": {
-          "basis_mean": 0.00010238,
-          "basis_std": 0.00022644,
-          "vol_mult": 1.1188,
+          "basis_mean": 0.00010193,
+          "basis_std": 0.00022747,
+          "vol_mult": 1.11607,
           "nu": 4.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         },
         "hourly": {
-          "basis_mean": 7.738e-05,
-          "basis_std": 0.00021858,
-          "vol_mult": 1.19846,
-          "nu": 200.0,
+          "basis_mean": 7.419e-05,
+          "basis_std": 0.0002198,
+          "vol_mult": 1.19071,
+          "nu": 20.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         }
@@ -28,18 +28,18 @@
     "ETH": {
       "by_family": {
         "15m": {
-          "basis_mean": 6.85e-05,
-          "basis_std": 0.00022682,
-          "vol_mult": 1.0503,
+          "basis_mean": 6.595e-05,
+          "basis_std": 0.00022697,
+          "vol_mult": 1.05266,
           "nu": 6.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         },
         "hourly": {
-          "basis_mean": 4.514e-05,
-          "basis_std": 0.000211,
-          "vol_mult": 1.09116,
-          "nu": 8.0,
+          "basis_mean": 4.637e-05,
+          "basis_std": 0.00021126,
+          "vol_mult": 1.08167,
+          "nu": 5.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         }
@@ -48,18 +48,18 @@
     "SOL": {
       "by_family": {
         "15m": {
-          "basis_mean": 5.462e-05,
-          "basis_std": 0.00020859,
-          "vol_mult": 1.01834,
+          "basis_mean": 6.659e-05,
+          "basis_std": 0.00020943,
+          "vol_mult": 1.02058,
           "nu": 12.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         },
         "hourly": {
-          "basis_mean": 1.633e-05,
-          "basis_std": 0.00019352,
-          "vol_mult": 1.04927,
-          "nu": 20.0,
+          "basis_mean": 2.37e-05,
+          "basis_std": 0.00019481,
+          "vol_mult": 1.04049,
+          "nu": 40.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         }
@@ -68,10 +68,18 @@
     "XRP": {
       "by_family": {
         "hourly": {
-          "basis_mean": 7.668e-05,
-          "basis_std": 0.00019341,
-          "vol_mult": 1.02931,
-          "nu": 40.0,
+          "basis_mean": 7.715e-05,
+          "basis_std": 0.00019582,
+          "vol_mult": 1.02102,
+          "nu": 12.0,
+          "drift_scale": 1.0,
+          "sd_mult": 1.2
+        },
+        "15m": {
+          "basis_mean": 0.00015401,
+          "basis_std": 0.00020148,
+          "vol_mult": 1.00476,
+          "nu": 20.0,
           "drift_scale": 1.0,
           "sd_mult": 1.2
         }
@@ -80,12 +88,20 @@
     "DOGE": {
       "by_family": {
         "hourly": {
-          "basis_mean": 0.0002035,
-          "basis_std": 0.00019209,
-          "vol_mult": 0.96572,
+          "basis_mean": 0.00022144,
+          "basis_std": 0.00019164,
+          "vol_mult": 0.96097,
           "nu": 200.0,
           "drift_scale": 1.0,
           "sd_mult": 0.9
+        },
+        "15m": {
+          "basis_mean": 0.00016516,
+          "basis_std": 0.00020436,
+          "vol_mult": 0.97653,
+          "nu": 20.0,
+          "drift_scale": 1.0,
+          "sd_mult": 1.2
         }
       }
     }
