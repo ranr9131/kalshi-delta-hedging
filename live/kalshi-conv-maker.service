@@ -1,0 +1,32 @@
+[Unit]
+Description=Kalshi convergence-aware market-maker shadow sim (earn the spread, paper/no-capital)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+
+# Thin-alt 15M + hourly; quote inside the spread around v3 fair, pull as the
+# 60s-average locks (see conv_maker_shadow.py).
+Environment=CONV_MM_SERIES=KXXRP15M,KXSOL15M,KXDOGE15M,KXXRPD,KXSOLD,KXDOGED
+Environment=CONV_MM_MARGIN_C=3.0
+Environment=CONV_MM_MIN_SPREAD=4
+Environment=CONV_MM_REQUOTE_SEC=1.0
+Environment=CONV_MM_MAX_POS=100
+Environment=CONV_MM_SIZE=50
+Environment=CONV_MM_TRACK_SEC=1200
+# v3 fair value with last-minute partial-average sharpening.
+Environment=FAIR_MODEL=v3
+Environment=FAIR_V3_PARTIAL=1
+
+EnvironmentFile=/home/ec2-user/kalshi-delta-hedging/live/.env
+
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/conv_maker_shadow.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/conv_maker.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/conv_maker.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
