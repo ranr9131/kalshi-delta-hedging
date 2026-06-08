@@ -1,0 +1,32 @@
+[Unit]
+Description=Kalshi convergence-taker shadow sim (near-expiry 60s-avg edge, paper/no-capital)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+
+# Thin-alt 15M + hourly; act only in the final window (see conv_taker_shadow.py).
+Environment=CONV_SERIES=KXXRP15M,KXSOL15M,KXDOGE15M,KXXRPD,KXSOLD,KXDOGED
+# Per-horizon action window (final N s before close); --report splits by horizon.
+Environment=CONV_WINDOW_15M=90
+Environment=CONV_WINDOW_HOURLY=90
+Environment=CONV_TICK_SEC=0.5
+Environment=CONV_MIN_EDGE_C=2.0
+Environment=CONV_MAX_SIZE=50
+Environment=CONV_TRACK_WITHIN_SEC=300
+# v3 fair value with last-minute partial-average sharpening.
+Environment=FAIR_MODEL=v3
+Environment=FAIR_V3_PARTIAL=1
+
+EnvironmentFile=/home/ec2-user/kalshi-delta-hedging/live/.env
+
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/conv_taker_shadow.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/conv_taker.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/conv_taker.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

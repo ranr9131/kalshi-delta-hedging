@@ -28,6 +28,12 @@ data/logs/*
 # Local trader state (per-machine, regenerated at runtime)
 live/*.csv
 
+# Fair-value (v3) pipeline data & scratch outputs (large / regeneratable)
+live/fv/*.csv
+live/fv/*.txt
+live/fv/*.out
+live/fv/basis_report.json
+
 # IDE
 .idea/
 

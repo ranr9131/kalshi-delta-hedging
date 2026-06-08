@@ -57,19 +57,50 @@ from coinbase_feeds import make_feed
 # Generic feeds for newer coins (same pattern as sniper_v2)
 _bnb_feed  = make_feed("BNB-USD")
 _doge_feed = make_feed("DOGE-USD")
-# V1 pricing: constant per-asset σ + calibration.json (historical fit).
-# Note: directional gate + opposite-side guard from V2 stay active (built
-# into sniper_multi itself, not the model).  This gives a hybrid: V1 model
-# without V1's worst failure modes.
-from fair_price_model import fair_p_yes, fair_p_no, ASSET_VOL_PER_MIN
-# No-op stub so the tick loop's _record_price_for_vol(...) call still works
-def _record_price_for_vol(asset, price): pass
+# V2 pricing: realized vol (adaptive σ from last 10min of prices) +
+# calibration_v2.json (live-fit Platt scaling).  Hot-reloads calibration
+# on file mtime change so the daily recal timer can update it without
+# restarting the sniper.
+from fair_price_model_v2 import (
+    fair_p_yes_v2 as fair_p_yes,
+    effective_sigma_per_min,
+    record_price as _record_price_for_vol,
+    FALLBACK_SIGMA_PER_MIN as ASSET_VOL_PER_MIN,
+)
+
+# Optional v3 fair-value model (60s-avg settlement + fat tails + index basis).
+# FAIR_MODEL=v3 routes pricing through v3 (15M markets -> greater_or_equal family).
+_FAIR_MODEL = os.environ.get("FAIR_MODEL", "v2").lower()
+if _FAIR_MODEL == "v3":
+    import fair_price_model_v3 as _v3
+    _V3_PARTIAL = os.environ.get("FAIR_V3_PARTIAL", "0") == "1"
+
+
+def _fair_p_yes(crypto_price, strike, minutes_left, asset, strike_type="greater_or_equal"):
+    """Dispatch to v2 (default) or v3 based on FAIR_MODEL."""
+    if _FAIR_MODEL == "v3":
+        return _v3.fair_p(crypto_price, minutes_left, asset, floor_strike=strike,
+                          strike_type=strike_type or "greater_or_equal",
+                          use_partial_history=_V3_PARTIAL)
+    return fair_p_yes(crypto_price, strike, minutes_left, asset)
+
+# Side-performance gate.  Blocks fires for (asset, side) combos whose rolling
+# 1h win rate has collapsed (catches regime-induced bleeding before the daily
+# loss limit does).  Adaptive — no trend prediction, just measures what's
+# actually winning right now.
+import side_performance_gate as _side_gate
 
 
 # ── Config (shared) ─────────────────────────────────────────────────────────
 
 PAPER_MODE              = os.environ.get("PAPER_MODE", "true").lower() != "false"
 MIN_EDGE_CENTS          = int(os.environ.get("MIN_EDGE_CENTS", "5"))
+# After Kalshi fee + slippage, this much edge must remain per contract.  Fee
+# = 7¢ × P × (1−P), max 1.75¢ at P=0.5.  Slippage default 1¢ from real fills
+# being slightly worse than the ladder estimate.  So a raw 5¢ edge becomes
+# ~2.25¢ net at typical prices; threshold of 1.5¢ keeps ~80% of fires.
+MIN_NET_EDGE_CENTS      = float(os.environ.get("MIN_NET_EDGE_CENTS", "1.5"))
+SLIPPAGE_CENTS          = float(os.environ.get("SLIPPAGE_CENTS",     "1.0"))
 TOTAL_STAKE_PER_SNIPE   = float(os.environ.get("TOTAL_STAKE_PER_SNIPE", "10.0"))
 TOTAL_DAILY_LOSS_LIMIT  = float(os.environ.get("TOTAL_DAILY_LOSS_LIMIT", "200.0"))
 MIN_MINUTES_LEFT        = float(os.environ.get("MIN_MINUTES_LEFT", "0.5"))
@@ -470,7 +501,8 @@ def _maybe_snipe(ticker: str, market: dict, book: ob.Book,
     if asset is None or strike is None:
         return
 
-    fpy = fair_p_yes(crypto_price, strike, minutes_left, asset)
+    fpy = _fair_p_yes(crypto_price, strike, minutes_left, asset,
+                      strike_type=market.get("strike_type", "greater_or_equal"))
     fpn = 1.0 - fpy
     yes_ask = book.yes_ask(); no_ask = book.no_ask()
     edge_dollars = MIN_EDGE_CENTS / 100.0
@@ -483,32 +515,55 @@ def _maybe_snipe(ticker: str, market: dict, book: ob.Book,
         return
 
     snipes = []  # (side, limit_d, fair_p, edge_c, lvl_age)
+
+    def _net_edge_cents(fill_d, raw_edge_c):
+        """Subtract Kalshi fee (0.07 × P × (1-P)) and slippage estimate from
+        raw edge.  Both in cents-per-contract.  We previously fired on raw
+        edge >= 5¢ but real fills + fees often consumed most of that."""
+        fee_c  = 7.0 * fill_d * (1.0 - fill_d)   # Kalshi fee per contract, ¢
+        slip_c = SLIPPAGE_CENTS                  # tunable estimate
+        return raw_edge_c - fee_c - slip_c
+
     # YES side
     if (yes_ask is not None and yes_ask >= 0.01
             and MIN_FAIR_P <= fpy <= MAX_FAIR_P):
         max_pay = fpy - edge_dollars
         if yes_ask <= max_pay and book.yes_ask_age() >= MIN_LEVEL_AGE_SEC:
-            snipes.append(("yes", round(min(0.99, max_pay), 4), fpy,
-                           (fpy - yes_ask) * 100.0, book.yes_ask_age()))
+            raw_edge_c = (fpy - yes_ask) * 100.0
+            net_edge_c = _net_edge_cents(yes_ask, raw_edge_c)
+            if net_edge_c >= MIN_NET_EDGE_CENTS:
+                snipes.append(("yes", round(min(0.99, max_pay), 4), fpy,
+                               raw_edge_c, book.yes_ask_age()))
     # NO side
     if (no_ask is not None and no_ask >= 0.01
             and MIN_FAIR_P <= fpn <= MAX_FAIR_P):
         max_pay = fpn - edge_dollars
         if no_ask <= max_pay and book.no_ask_age() >= MIN_LEVEL_AGE_SEC:
-            snipes.append(("no", round(min(0.99, max_pay), 4), fpn,
-                           (fpn - no_ask) * 100.0, book.no_ask_age()))
+            raw_edge_c = (fpn - no_ask) * 100.0
+            net_edge_c = _net_edge_cents(no_ask, raw_edge_c)
+            if net_edge_c >= MIN_NET_EDGE_CENTS:
+                snipes.append(("no", round(min(0.99, max_pay), 4), fpn,
+                               raw_edge_c, book.no_ask_age()))
 
     now = time.time()
     for side, limit_d, fair_p, edge_c, lvl_age in snipes:
         key = (ticker, side)
         if now - _last_snipe_ts[key] < SNIPE_COOLDOWN_SEC:
             continue
-        # Block if we already fired the OPPOSITE side on this ticker today
-        # (avoids accumulating self-hedged-net-loss exposure when the
-        # underlying whipsaws across our fair).
-        if not _check_and_record_side(ticker, side):
-            log.info(f"  skipping {ticker} {side}: opposite side already fired today")
+        # NOTE: opposite-side guard removed.  In whipsawing regimes (like
+        # 2026-06-05 dump-bounce-dump) the guard locked us out of legitimate
+        # reversal trades that V2 paper successfully captured.  Both sides
+        # can now fire freely on the same ticker.
+
+        # Side-performance gate: if this (asset, side) combo has been bleeding
+        # in the rolling 1h window, skip this fire.  Cooldown still applies
+        # to the blocked side so we don't log "blocked" on every tick.
+        allowed, reason = _side_gate.is_allowed(asset, side)
+        if not allowed:
+            _last_snipe_ts[key] = now
+            log.info(f"  GATE   {ticker} {side.upper()} blocked: {reason}")
             continue
+
         _last_snipe_ts[key] = now
 
         # How many contracts available at-or-below our limit
@@ -572,8 +627,19 @@ def main():
              {a: round(v,2) for a,v in _MIN_MOVE_BPS.items()})
     log.info("coinflip filter: %.2f <= fair_p <= %.2f", MIN_FAIR_P, MAX_FAIR_P)
     log.info("directional gate OFF: both sides eligible regardless of move direction")
-    log.info("opposite-side guard ON: won't fire NO on a ticker if we've fired YES today")
-    log.info("pricing model: V1 (constant σ + calibration.json)")
+    log.info("opposite-side guard OFF: both sides can fire on same ticker (matches V2 paper)")
+    log.info("pricing model: V2 (realized σ + calibration_v2.json)")
+    log.info(
+        "side-perf gate %s: block if rolling %dmin win rate < %d%% (n>=%d)",
+        "ON" if _side_gate.ENABLED else "OFF",
+        int(_side_gate.LOOKBACK_MIN),
+        int(_side_gate.BLOCK_BELOW * 100),
+        _side_gate.MIN_SAMPLES,
+    )
+    log.info(
+        "fee-aware edge gate ON: raw_edge >= %d¢ AND net_edge (after fee + %.1f¢ slippage) >= %.1f¢",
+        MIN_EDGE_CENTS, SLIPPAGE_CENTS, MIN_NET_EDGE_CENTS,
+    )
 
     accounts = load_accounts()
     if not accounts:
