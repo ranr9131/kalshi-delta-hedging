@@ -1,0 +1,16 @@
+[Unit]
+Description=Cross-market sports logger (Kalshi vs Polymarket aligned bid/ask)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/xmarket_logger.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/xmarket.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/xmarket.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,83 @@
+19:31:26  INFO   xmarket logger starting  csv=/Users/leolee/kalshi-delta-hedging/live/xmarket_quotes.csv
+19:31:26  INFO   discovery loop starting: NBA, WNBA, NHL, MLB, NFL, SOCCER
+19:31:27  INFO   [WNBA] live: Portland Fire @ Los Angeles Sparks (In Progress)
+19:31:27  INFO   [WNBA POR@LA] matching markets...
+19:31:27  INFO   [WNBA POR@LA] kalshi=Y poly=wnba-por-la-2026-06-07  outcomes=home:kYpY,away:kYpY
+19:31:27  INFO   [MLB] live: Los Angeles Angels @ Los Angeles Dodgers (In Progress)
+19:31:27  INFO   [MLB LAA@LAD] matching markets...
+19:31:27  INFO   [MLB LAA@LAD] kalshi=Y poly=mlb-laa-lad-2026-06-07  outcomes=home:kYpY,away:kYpY
+19:31:28  INFO   [SOCCER] live: Jordan @ Colombia (First Half)
+19:31:28  INFO   [SOCCER JOR@COL] matching markets...
+19:31:28  INFO   [SOCCER JOR@COL] kalshi=- poly=fif-jor-col-2026-06-07  outcomes=home:k-pY,away:k-pY,draw:k-pY
+19:31:40  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:31:42  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:31:44  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:31:46  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:31:47  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:00  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:02  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:04  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:06  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:08  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:09  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:11  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:13  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:15  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:17  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:32:18  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.74 Portland=0.25
+19:33:10  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:11  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:13  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:15  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:17  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:19  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:33:21  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:35:15  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:35:17  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.75 Portland=0.23
+19:35:18  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.75 Portland=0.23
+19:35:20  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.75 Portland=0.23
+19:36:08  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.77 Portland=0.22
+19:36:10  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.77 Portland=0.21
+19:36:13  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.79 Portland=0.2
+19:38:07  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.76 Portland=0.23
+19:38:09  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.76 Portland=0.23
+19:38:11  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.76 Portland=0.23
+19:38:13  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.76 Portland=0.23
+19:38:26  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:38:27  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:38:29  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:38:31  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:38:33  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.75 Portland=0.24
+19:39:13  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.69 Portland=0.3
+19:39:20  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.67 Portland=0.32
+19:39:22  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.67 Portland=0.32
+19:39:24  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.67 Portland=0.32
+19:39:44  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:45  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:48  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:49  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:51  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:53  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:55  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:57  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:39:59  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:00  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:02  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:04  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:06  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:08  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:09  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:11  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:13  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:15  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:17  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:19  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:20  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:22  INFO   [WNBA POR@LA] ARB? lock=0.9800 edge=2.00c Los Ange=0.64 Portland=0.34
+19:40:24  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:26  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:28  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:29  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:31  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:33  INFO   [WNBA POR@LA] ARB? lock=0.9900 edge=1.00c Los Ange=0.65 Portland=0.34
+19:40:50  INFO   [MLB LAA@LAD] game ended, sampler stopping

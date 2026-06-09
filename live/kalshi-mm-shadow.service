@@ -1,0 +1,28 @@
+[Unit]
+Description=Kalshi passive-fill MM shadow logger (thin-coin MM Step 2, paper/no-capital)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging/live
+
+# Candidate universe + quote model (see mm_shadow_logger.py docstring).
+Environment=MM_SHADOW_SERIES=KXXRPD,KXDOGE,KXDOGED,KXXRP
+Environment=MM_SHADOW_INSIDE=1
+Environment=MM_SHADOW_MIN_SPREAD=3
+Environment=MM_SHADOW_REQUOTE_SEC=1.0
+Environment=MM_SHADOW_MID_MIN=0.10
+Environment=MM_SHADOW_MID_MAX=0.90
+Environment=MM_SHADOW_SNAPSHOT_SEC=1.0
+
+EnvironmentFile=/home/ec2-user/kalshi-delta-hedging/live/.env
+
+ExecStart=/usr/bin/python3.11 /home/ec2-user/kalshi-delta-hedging/live/mm_shadow_logger.py
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/live/mm_shadow.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/live/mm_shadow.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

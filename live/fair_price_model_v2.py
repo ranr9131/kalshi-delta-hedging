@@ -190,6 +190,134 @@ def fair_p_yes_v2(current_price: float, strike: float, minutes_left: float,
     return _apply_calibration(raw, asset)
 
 
+# ── TOUCH / first-passage model (for "reach $X" / "dip to $X" markets) ──────
+#
+# fair_p_yes_v2 above is a TERMINAL model: P(price ≥ strike AT SETTLEMENT).
+# That is correct for Up/Down and hourly-settlement markets (what the sniper
+# trades), and MUST stay as-is.
+#
+# Touch markets ("Will BTC *reach* $80k in June?", "Will SOL *dip to* $40?")
+# pay if the barrier is hit AT ANY POINT before expiry. The probability of
+# *touching* a level is ~2× the probability of *finishing* beyond it, so a
+# terminal model materially mis-prices them. These functions compute the
+# one-touch (first-passage) probability under GBM, reusing the SAME realized-σ
+# machinery as the terminal model.
+#
+# Direction is inferred from the barrier vs spot: barrier above → up-touch,
+# barrier below → down-touch.
+#
+# Driftless closed form (drift_per_min=0):  P_touch = 2·Φ(-|ln(H/S)| / (σ√T))
+# General form keeps a per-minute log-drift term (default 0 — over short
+# crypto horizons drift is negligible and adds estimation noise).
+
+def p_touch_v2(current_price: float, barrier: float, minutes_left: float,
+               asset: str = "BTC", sigma_per_min: Optional[float] = None,
+               drift_per_min: float = 0.0) -> float:
+    """P(price touches `barrier` at any time within `minutes_left`).
+
+    First-passage probability for arithmetic BM in log-price with per-minute
+    vol σ and drift ν. Use for TOUCH markets, NOT settlement markets.
+    Returns a value in [0, 1]."""
+    if current_price <= 0 or barrier <= 0:
+        return 0.5
+    if minutes_left <= 0:
+        # No time left: "touched" iff spot is already at/through the barrier.
+        if barrier >= current_price:
+            return 1.0 if current_price >= barrier else 0.0
+        return 1.0 if current_price <= barrier else 0.0
+
+    sigma = sigma_per_min if sigma_per_min is not None else effective_sigma_per_min(asset)
+    if sigma <= 0:
+        return 0.0
+    T = float(minutes_left)
+    total_sigma = sigma * math.sqrt(T)
+    b = math.log(barrier / current_price)        # log-distance to barrier
+    nu = float(drift_per_min)
+
+    def _safe_exp_phi(expo: float, phi_arg: float) -> float:
+        # exp(expo)·Φ(phi_arg) with overflow guard; the Φ factor → 0 for very
+        # negative args, so capping the exponent never inflates a real value.
+        try:
+            return math.exp(min(expo, 50.0)) * _phi(phi_arg)
+        except OverflowError:
+            return 0.0
+
+    if b >= 0:  # up-barrier
+        p = (_phi((nu * T - b) / total_sigma)
+             + _safe_exp_phi(2.0 * nu * b / (sigma * sigma), (-nu * T - b) / total_sigma))
+    else:       # down-barrier
+        p = (_phi((b - nu * T) / total_sigma)
+             + _safe_exp_phi(2.0 * nu * b / (sigma * sigma), (b + nu * T) / total_sigma))
+
+    return min(1.0, max(0.0, p))
+
+
+def fair_p_no_touch_v2(current_price: float, barrier: float, minutes_left: float,
+                       asset: str = "BTC", sigma_per_min: Optional[float] = None,
+                       drift_per_min: float = 0.0) -> float:
+    """Model 'No' value for a touch market = 1 − P(touch).
+
+    This is the number to compare against the market's 'No' ask. Edge =
+    fair_p_no_touch_v2(...) − market_no_ask. Uncalibrated by design: Phase-0
+    shadow logging measures raw edge before any Platt fit. (A touch-specific
+    calibration can be layered on later — do NOT reuse calibration_v2.json,
+    which is fit to the terminal model.)"""
+    return 1.0 - p_touch_v2(current_price, barrier, minutes_left, asset,
+                            sigma_per_min, drift_per_min)
+
+
+def touch_moneyness_z(current_price: float, barrier: float, minutes_left: float,
+                      asset: str = "BTC",
+                      sigma_per_min: Optional[float] = None) -> float:
+    """Vol-units from spot to the barrier: |ln(barrier/spot)| / (σ√T).
+
+    The far-OTM discipline gate: only quote the 'No' when z is large enough
+    (e.g. ≥ 1.5–2) that the touch is near-impossible and σ-misestimation
+    can't flip the trade. Returns +inf if no time left."""
+    if current_price <= 0 or barrier <= 0:
+        return 0.0
+    if minutes_left <= 0:
+        return float("inf")
+    sigma = sigma_per_min if sigma_per_min is not None else effective_sigma_per_min(asset)
+    if sigma <= 0:
+        return float("inf")
+    return abs(math.log(barrier / current_price)) / (sigma * math.sqrt(minutes_left))
+
+
+def implied_sigma_from_touch(p_touch_target: float, current_price: float,
+                             barrier: float, minutes_left: float,
+                             drift_per_min: float = 0.0,
+                             lo: float = 1e-6, hi: float = 0.05,
+                             iters: int = 60) -> Optional[float]:
+    """Invert p_touch_v2 for σ-per-minute: find σ s.t. the model's touch
+    probability equals `p_touch_target` (the market's implied touch prob, =
+    market 'Yes' mid). p_touch is monotincreasing in σ, so bisection is safe.
+
+    Use this to read the market's OWN volatility off a liquid near-the-money
+    strike, then price other strikes of the same expiry with it. Returns None
+    if the target is unreachable within [lo, hi] (e.g. already-touched, or a
+    target so extreme no σ in range fits)."""
+    if not (0.0 < p_touch_target < 1.0):
+        return None
+    if current_price <= 0 or barrier <= 0 or minutes_left <= 0:
+        return None
+
+    def f(sig):
+        return p_touch_v2(current_price, barrier, minutes_left, sigma_per_min=sig,
+                          drift_per_min=drift_per_min)
+
+    flo, fhi = f(lo), f(hi)
+    if not (min(flo, fhi) <= p_touch_target <= max(flo, fhi)):
+        return None
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        if f(mid) < p_touch_target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
 def calibration_active() -> bool:
     return bool(_CAL)
 
@@ -203,3 +331,16 @@ if __name__ == "__main__":
     print("BTC fair @ ATM 10min:", fair_p_yes_v2(67000, 67000, 10, "BTC"))
     print("BTC fair @ -0.1% 10min:", fair_p_yes_v2(67000, 67067, 10, "BTC"))
     print("calibration active:", calibration_active())
+
+    # ── touch vs terminal: the ~2x gap ──
+    S, K, mins, sig = 65000, 80000, 23 * 24 * 60, 0.0012  # BTC $65k→$80k, ~23d, σ_min
+    term_yes = fair_p_yes_raw_v2(S, K, mins, "BTC", sigma_per_min=sig)
+    touch_yes = p_touch_v2(S, K, mins, "BTC", sigma_per_min=sig)
+    print(f"\nBTC $65k→$80k in 23d (σ/min={sig}):")
+    print(f"  terminal P(yes/finish≥80k): {term_yes:.4f}")
+    print(f"  touch    P(yes/ever hit  ): {touch_yes:.4f}   (~{touch_yes/max(term_yes,1e-9):.1f}x)")
+    print(f"  model 'No' value (touch):   {fair_p_no_touch_v2(S,K,mins,'BTC',sigma_per_min=sig):.4f}")
+    print(f"  moneyness z:                {touch_moneyness_z(S,K,mins,'BTC',sigma_per_min=sig):.2f} vol-units")
+    # sanity: driftless touch == 2·Φ(-z)
+    z = touch_moneyness_z(S, K, mins, "BTC", sigma_per_min=sig)
+    print(f"  check 2·Φ(-z):              {2*_phi(-z):.4f}  (should match touch)")
