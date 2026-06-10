@@ -235,6 +235,22 @@ def _kalshi_series_markets(series: str) -> list:
         return []
 
 
+def _kalshi_date_token(espn_date_iso: str) -> Optional[str]:
+    """ESPN UTC date -> Kalshi ticker date token, e.g. '26JUN09'.
+    Kalshi tickers embed the game's EASTERN-time date (KXMLBGAME-26JUN091910...).
+    CRITICAL: teams play multi-day series and Kalshi lists every game, so
+    matching by team codes alone can grab TOMORROW'S market — which sits at
+    its pregame price all night and looks exactly like a giant stale-quote
+    arb vs Polymarket's live game. (This bug produced fake 40-50c 'edges'.)"""
+    try:
+        from zoneinfo import ZoneInfo
+        dt = datetime.fromisoformat(espn_date_iso.replace("Z", "+00:00"))
+        et = dt.astimezone(ZoneInfo("America/New_York"))
+        return et.strftime("%y%b%d").upper()
+    except Exception:
+        return None
+
+
 def _match_kalshi(series_list: List[str], game: dict, outcomes: List[dict]) -> None:
     """Fill outcome['k'] with a Kalshi ticker by matching yes_sub_title."""
     markets = []
@@ -247,6 +263,15 @@ def _match_kalshi(series_list: List[str], game: dict, outcomes: List[dict]) -> N
     for m in markets:
         base = m.get("ticker", "").rsplit("-", 1)[0]
         events[base].append(m)
+
+    # date gate: only consider events whose ticker carries TODAY'S (ET) date
+    date_tok = _kalshi_date_token(game.get("date") or "")
+    if date_tok:
+        dated = {b: mks for b, mks in events.items() if date_tok in b.upper()}
+        if dated:
+            events = dated
+        else:
+            return   # no Kalshi market for this game's date -> no match at all
 
     home_set, away_set = _norm(game["home_name"]), _norm(game["away_name"])
     ha = (game.get("home_abbr") or "").upper()
