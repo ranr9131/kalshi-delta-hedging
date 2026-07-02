@@ -1,0 +1,26 @@
+# Kalshi LIP farmer - systemd unit
+# Install:  sudo cp kalshi-lip.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now kalshi-lip
+# Paper mode is the default; flip LIP_PAPER=0 below to go live.
+
+[Unit]
+Description=Kalshi LIP farmer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/kalshi-delta-hedging/live
+ExecStart=/usr/bin/python3.11 /home/ubuntu/kalshi-delta-hedging/live/lip_farmer.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ubuntu/kalshi-delta-hedging/live/lip_farmer.out
+StandardError=append:/home/ubuntu/kalshi-delta-hedging/live/lip_farmer.out
+
+Environment=LIP_PAPER=1
+# Environment=LIP_MAX_MARKETS=40
+# Environment=LIP_MAX_TOTAL_CAPITAL=2000
+# Environment=LIP_MAX_TOTAL_WORST_LOSS=500
+# Environment=LIP_MAX_LOSS_PER_MARKET=30
+
+[Install]
+WantedBy=multi-user.target

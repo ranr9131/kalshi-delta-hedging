@@ -1,0 +1,36 @@
+04:18:38 nba: scoreboard empty, schedule fallback found 1 games
+04:18:38 NBA SAS@NYK: kalshi=['KXNBAGAME-26JUN10SASNYK-SAS', 'KXNBAGAME-26JUN10SASNYK-NYK'] poly=nba-sas-nyk-2026-06-10 status=1
+04:18:38 MLB BOS@TB: kalshi=2 poly=mlb-bos-tb-2026-06-10
+04:18:38 MLB NYY@CLE: kalshi=2 poly=mlb-nyy-cle-2026-06-10
+04:18:38 MLB WSH@SF: kalshi=2 poly=mlb-wsh-sf-2026-06-10
+04:18:39 MLB CIN@SD: kalshi=2 poly=mlb-cin-sd-2026-06-10
+04:18:39 MLB SEA@BAL: kalshi=2 poly=mlb-sea-bal-2026-06-10
+04:18:39 MLB LAD@PIT: kalshi=2 poly=mlb-lad-pit-2026-06-10
+04:18:39 MLB MIN@DET: kalshi=2 poly=mlb-min-det-2026-06-10
+04:18:39 MLB AZ@MIA: kalshi=2 poly=None
+04:18:39 MLB PHI@TOR: kalshi=2 poly=mlb-phi-tor-2026-06-10
+04:18:39 MLB STL@NYM: kalshi=2 poly=mlb-stl-nym-2026-06-10
+04:18:39 MLB TEX@KC: kalshi=2 poly=mlb-tex-kc-2026-06-10
+04:18:39 MLB ATL@CWS: kalshi=2 poly=mlb-atl-cws-2026-06-10
+04:18:39 MLB CHC@COL: kalshi=2 poly=mlb-chc-col-2026-06-10
+04:18:39 MLB MIL@ATH: kalshi=2 poly=None
+04:18:39 MLB HOU@LAA: kalshi=2 poly=mlb-hou-laa-2026-06-10
+04:18:39 tracking 16 games, min_edge=5.0c, paper only
+04:18:39 [SAS@NYK] prior anchored: home 54c -> z=+0.09
+04:18:39 [BOS@TB] prior anchored: home 58c -> z=+0.21
+04:18:40 [NYY@CLE] prior anchored: home 52c -> z=+0.04
+04:18:40 [WSH@SF] prior anchored: home 52c -> z=+0.06
+04:18:40 [CIN@SD] prior anchored: home 60c -> z=+0.27
+04:18:40 [SEA@BAL] prior anchored: home 46c -> z=-0.09
+04:18:40 [LAD@PIT] prior anchored: home 34c -> z=-0.40
+04:18:40 [MIN@DET] prior anchored: home 60c -> z=+0.24
+04:18:40 [PHI@TOR] prior anchored: home 42c -> z=-0.19
+04:18:40 [STL@NYM] prior anchored: home 56c -> z=+0.14
+04:18:40 [TEX@KC] prior anchored: home 46c -> z=-0.09
+04:18:41 [ATL@CWS] prior anchored: home 42c -> z=-0.21
+04:18:41 [CHC@COL] prior anchored: home 40c -> z=-0.24
+04:18:41 [HOU@LAA] prior anchored: home 52c -> z=+0.04
+13:30:47   TAKE[poly] Cleveland Gu ask 32c sz937 vs wp 60 edge +27.7c after '' (0-1 Top 2, 0 out)
+13:30:48   TAKE[poly] Cleveland Gu ask 32c sz11721 vs wp 42 edge +9.7c after 'Jazz Chisholm Jr. triples (2) on a sharp line drive to right' (2-1 Top 2, 0 out)
+13:32:09   TAKE[poly] Cleveland Gu ask 27c sz3349 vs wp 34 edge +6.1c after '' (3-1 Top 2, 0 out)
+14:29:04   TAKE[poly] New York Yan ask 43c sz46547 vs wp 49 edge +5.2c after 'Cody Bellinger flies out to left fielder David Fry.' (3-3 Top 5, 3 out)

@@ -1,0 +1,21 @@
+[Unit]
+Description=Kalshi NN TAKER multi-asset forward paper shadow (BTC/ETH/SOL/XRP, validated taker, real touch fills, self-fetching, no capital)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging
+Environment=ASSETS=BTC,ETH,SOL,XRP
+Environment=BASE_STAKE=10
+Environment=MIN_EDGE_C=5
+Environment=SIZING=flat
+ExecStart=/usr/bin/python3.11 -u /home/ec2-user/kalshi-delta-hedging/nn/taker_shadow.py --interval 60
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/nn/taker_shadow_runtime.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/nn/taker_shadow_runtime.log
+
+[Install]
+WantedBy=multi-user.target

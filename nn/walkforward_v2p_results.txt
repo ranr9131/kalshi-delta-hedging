@@ -1,0 +1,36 @@
+Dataset v2p: 5895 windows | features=16 (14 base + v3_fair + v3_minus_mid)
+  Date range: 2026-03-23 -> 2026-05-25
+
+Fold F1 (test 2026-04-17 -> 2026-04-27, n=884):
+  trained both models in 21s
+  Brier@10:  mid=0.1310  NN14=0.1428  NN16=0.1442  V3=0.1466
+  NN14: acted= 304 win%= 63.8 wagered=$    65300 P&L=$   +54181 ROI= +82.97%
+  NN16: acted= 295 win%= 63.7 wagered=$    60000 P&L=$   +38407 ROI= +64.01%
+    V3: acted= 359 win%= 60.7 wagered=$    90128 P&L=$   +63993 ROI= +71.00%
+
+Fold F2 (test 2026-04-27 -> 2026-05-06, n=884):
+  trained both models in 48s
+  Brier@10:  mid=0.1162  NN14=0.1231  NN16=0.1229  V3=0.1272
+  NN14: acted= 254 win%= 68.1 wagered=$    50716 P&L=$   +30493 ROI= +60.13%
+  NN16: acted= 239 win%= 73.6 wagered=$    46959 P&L=$   +33256 ROI= +70.82%
+    V3: acted= 308 win%= 63.3 wagered=$    73888 P&L=$   +50963 ROI= +68.97%
+
+Fold F3 (test 2026-05-06 -> 2026-05-16, n=884):
+  trained both models in 42s
+  Brier@10:  mid=0.1209  NN14=0.1363  NN16=0.1306  V3=0.1334
+  NN14: acted= 242 win%= 66.1 wagered=$    48623 P&L=$   +60341 ROI=+124.10%
+  NN16: acted= 233 win%= 70.4 wagered=$    46065 P&L=$   +50262 ROI=+109.11%
+    V3: acted= 316 win%= 64.6 wagered=$    72534 P&L=$   +75620 ROI=+104.25%
+
+Fold F4 (test 2026-05-16 -> 2026-05-25, n=884):
+  trained both models in 62s
+  Brier@10:  mid=0.1289  NN14=0.1445  NN16=0.1378  V3=0.1473
+  NN14: acted= 283 win%= 66.8 wagered=$    54243 P&L=$   +25892 ROI= +47.73%
+  NN16: acted= 292 win%= 66.4 wagered=$    56763 P&L=$   +31957 ROI= +56.30%
+    V3: acted= 357 win%= 57.4 wagered=$    82656 P&L=$   +44224 ROI= +53.50%
+
+━━━ Summary (all folds) ━━━
+  variant |  Brier@10       ROI        P&L  acted
+     NN14 |    0.1367   +78.08% $  +170907   1083
+     NN16 |    0.1339   +73.35% $  +153882   1059
+       V3 |    0.1386   +73.56% $  +234800   1340

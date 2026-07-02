@@ -43,3 +43,7 @@ CONTEXT_HANDOFF.md
 # OS
 .DS_Store
 Thumbs.db
+
+# market-data recordings (too big for git; corpus lives on AWS/disk)
+recordings/
+recordings_fresh/

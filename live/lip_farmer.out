@@ -1,0 +1,755 @@
+2026-06-10 16:55:58,481  lip_farmer  LIP farmer starting (PAPER mode), caps: 40 markets / $2000 capital / $500 worst-loss
+2026-06-10 16:55:58,836  lip_farmer  programs: 2750 active liquidity tickers, $57311/day total
+2026-06-10 16:56:26,198  lip_alloc  allocation: 15 candidates -> 15 chosen, capital $803, worst-loss $450, est $240.60/day
+2026-06-10 17:01:56,971  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $808, worst-loss $480, est $257.89/day
+2026-06-10 17:01:56,974  lip_farmer  dropping KXCPIYOY-26NOV-T3.2
+2026-06-10 17:01:56,974  lip_farmer  dropping KXCPIYOY-26NOV-T3.6
+2026-06-10 17:06:29,545  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:06:57,780  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $806, worst-loss $480, est $302.87/day
+2026-06-10 17:06:57,782  lip_farmer  dropping KXTRUEV-26JUN10-T1245.33
+2026-06-10 17:06:57,782  lip_farmer  dropping KXHIGHTMIN-26JUN11-B75.5
+2026-06-10 17:11:58,644  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $800, worst-loss $480, est $330.62/day
+2026-06-10 17:11:58,646  lip_farmer  dropping KXUSGASCPI-26AUG12-T360
+2026-06-10 17:11:58,646  lip_farmer  dropping KXLOWTCHI-26JUN11-T73
+2026-06-10 17:11:58,647  lip_farmer  dropping KXCPICOREYOY-26NOV-T3.3
+2026-06-10 17:16:30,447  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:16:58,705  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $769, worst-loss $480, est $316.40/day
+2026-06-10 17:16:58,707  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-750
+2026-06-10 17:16:58,707  lip_farmer  dropping KXHIGHTHOU-26JUN10-B93.5
+2026-06-10 17:22:00,730  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $755, worst-loss $480, est $338.76/day
+2026-06-10 17:22:00,755  lip_farmer  dropping KXCPICORE-26AUG-T0.0
+2026-06-10 17:22:00,789  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-900
+2026-06-10 17:22:00,789  lip_farmer  dropping KXCPICOREYOY-26SEP-T2.9
+2026-06-10 17:26:30,629  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:26:59,351  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $785, worst-loss $480, est $354.51/day
+2026-06-10 17:26:59,357  lip_farmer  dropping KXLOWTPHIL-26JUN11-B69.5
+2026-06-10 17:26:59,357  lip_farmer  dropping KXLOWTCHI-26JUN11-B72.5
+2026-06-10 17:26:59,357  lip_farmer  dropping KXCPIYOY-26NOV-T4.7
+2026-06-10 17:26:59,357  lip_farmer  dropping KXLOWTMIA-26JUN11-B74.5
+2026-06-10 17:32:00,630  lip_alloc  allocation: 15 candidates -> 15 chosen, capital $748, worst-loss $450, est $314.04/day
+2026-06-10 17:32:00,632  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-750
+2026-06-10 17:32:00,632  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-900
+2026-06-10 17:32:00,632  lip_farmer  dropping KXLOWTMIA-26JUN11-T79
+2026-06-10 17:36:30,808  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:36:59,723  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $773, worst-loss $480, est $375.68/day
+2026-06-10 17:36:59,735  lip_farmer  dropping KXLOWTPHIL-26JUN11-B69.5
+2026-06-10 17:36:59,737  lip_farmer  dropping KXCPIYOY-26NOV-T4.3
+2026-06-10 17:36:59,738  lip_farmer  dropping KXCPICOREYOY-26SEP-T2.3
+2026-06-10 17:36:59,738  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-700
+2026-06-10 17:42:00,166  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $776, worst-loss $480, est $377.47/day
+2026-06-10 17:42:00,167  lip_farmer  dropping KXLOWTCHI-26JUN11-B72.5
+2026-06-10 17:46:31,277  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:47:01,491  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $773, worst-loss $480, est $342.96/day
+2026-06-10 17:47:01,521  lip_farmer  dropping KXLOWTCHI-26JUN11-B70.5
+2026-06-10 17:47:01,524  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-1100
+2026-06-10 17:52:01,846  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $827, worst-loss $480, est $289.82/day
+2026-06-10 17:52:01,848  lip_farmer  dropping KXHIGHTSATX-26JUN10-B95.5
+2026-06-10 17:52:01,848  lip_farmer  dropping KXTRUEV-26JUN10-T1235.33
+2026-06-10 17:52:01,848  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-650
+2026-06-10 17:56:31,621  lip_farmer  programs: 2760 active liquidity tickers, $57533/day total
+2026-06-10 17:57:03,029  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $833, worst-loss $480, est $291.49/day
+2026-06-10 17:57:03,053  lip_farmer  dropping KXSHELTERCPI-26JUL14-T428.6
+2026-06-10 17:57:03,053  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.6
+2026-06-10 18:01:58,924  lip_alloc  allocation: 11 candidates -> 11 chosen, capital $604, worst-loss $330, est $145.92/day
+2026-06-10 18:01:58,926  lip_farmer  dropping KXLOWTAUS-26JUN11-T78
+2026-06-10 18:01:58,927  lip_farmer  dropping KXCPICOREYOY-26NOV-T3.2
+2026-06-10 18:01:58,927  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-850
+2026-06-10 18:01:58,927  lip_farmer  dropping KXTRUEV-26JUN10-T1195.33
+2026-06-10 18:01:58,927  lip_farmer  dropping KXTRUEV-26JUN10-T1245.33
+2026-06-10 18:01:58,927  lip_farmer  dropping KXNHLPRICE-26JUNGAME5-800
+2026-06-10 18:01:58,927  lip_farmer  dropping KXLOWTAUS-26JUN11-B73.5
+2026-06-10 18:06:32,452  lip_farmer  programs: 2781 active liquidity tickers, $58154/day total
+2026-06-10 18:06:59,723  lip_alloc  allocation: 17 candidates -> 17 chosen, capital $924, worst-loss $490, est $205.03/day
+2026-06-10 18:06:59,726  lip_farmer  dropping KXLOWTMIA-26JUN11-B74.5
+2026-06-10 18:12:01,351  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $914, worst-loss $480, est $134.18/day
+2026-06-10 18:12:01,353  lip_farmer  dropping KXWCOCMEX-26JUN12-CHA
+2026-06-10 18:12:01,353  lip_farmer  dropping KXWCOCMEX-26JUN12-UND
+2026-06-10 18:16:33,413  lip_farmer  programs: 2781 active liquidity tickers, $58154/day total
+2026-06-10 18:17:01,870  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $905, worst-loss $480, est $159.58/day
+2026-06-10 18:17:01,874  lip_farmer  dropping KXCPICORE-26SEP-T0.1
+2026-06-10 18:17:01,874  lip_farmer  dropping KXUSEDCARCPI-26JUL14-T183.0
+2026-06-10 18:17:01,875  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-HPIN-P4
+2026-06-10 18:17:01,875  lip_farmer  dropping KXLOWTDEN-26JUN11-B54.5
+2026-06-10 18:22:02,905  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $885, worst-loss $480, est $174.22/day
+2026-06-10 18:22:02,909  lip_farmer  dropping KXCPICORE-26OCT-T0.6
+2026-06-10 18:22:02,909  lip_farmer  dropping KXUSGASCPI-26AUG12-T365
+2026-06-10 18:22:02,909  lip_farmer  dropping KXWCOCCAN-26JUN13-SAV
+2026-06-10 18:26:34,046  lip_farmer  programs: 2781 active liquidity tickers, $58154/day total
+2026-06-10 18:27:03,443  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $852, worst-loss $480, est $159.57/day
+2026-06-10 18:27:03,445  lip_farmer  dropping KXPRIMARYCOUNTY-CAGOVPRIMARY1ST26JUN021STTSTE-MARI
+2026-06-10 18:27:03,445  lip_farmer  dropping KXHIGHTSATX-26JUN10-B95.5
+2026-06-10 18:32:03,640  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $898, worst-loss $480, est $174.82/day
+2026-06-10 18:32:03,643  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.3
+2026-06-10 18:32:03,643  lip_farmer  dropping KXHIGHTNOLA-26JUN11-T89
+2026-06-10 18:36:34,755  lip_farmer  programs: 2781 active liquidity tickers, $58154/day total
+2026-06-10 18:37:03,835  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $897, worst-loss $480, est $156.95/day
+2026-06-10 18:37:03,837  lip_farmer  dropping KXLOWTMIA-26JUN11-T79
+2026-06-10 18:42:04,422  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $900, worst-loss $480, est $134.55/day
+2026-06-10 18:42:04,426  lip_farmer  dropping KXLOWTMIA-26JUN11-B74.5
+2026-06-10 18:46:34,795  lip_farmer  programs: 2781 active liquidity tickers, $58154/day total
+2026-06-10 18:47:05,215  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $890, worst-loss $480, est $139.94/day
+2026-06-10 18:47:05,220  lip_farmer  dropping KXWCOCCAN-26JUN13-CRY
+2026-06-10 18:52:05,552  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $940, worst-loss $480, est $138.68/day
+2026-06-10 18:52:05,555  lip_farmer  dropping KXWCOCUSA-26JUN13-HOT
+2026-06-10 18:52:05,555  lip_farmer  dropping KXCPICORE-26AUG-T0.2
+2026-06-10 18:56:35,102  lip_farmer  programs: 2782 active liquidity tickers, $58158/day total
+2026-06-10 18:57:06,508  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $920, worst-loss $480, est $137.32/day
+2026-06-10 18:57:06,510  lip_farmer  dropping KXCPIYOY-26AUG-T3.7
+2026-06-10 19:02:06,703  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $920, worst-loss $480, est $140.34/day
+2026-06-10 19:02:06,705  lip_farmer  dropping KXCPICORE-26AUG-T0.5
+2026-06-10 19:02:06,705  lip_farmer  dropping KXNBAFINALSPRICE-26JUNGAME5-700
+2026-06-10 19:02:06,705  lip_farmer  dropping KXCPICOREYOY-26AUG-T2.2
+2026-06-10 19:06:36,195  lip_farmer  programs: 2788 active liquidity tickers, $58193/day total
+2026-06-10 19:07:06,759  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $910, worst-loss $480, est $142.24/day
+2026-06-10 19:07:06,773  lip_farmer  dropping KXCPICORE-26OCT-T0.1
+2026-06-10 19:12:07,645  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $930, worst-loss $480, est $98.28/day
+2026-06-10 19:12:07,653  lip_farmer  dropping KXCPICORE-26OCT-T0.9
+2026-06-10 19:12:07,654  lip_farmer  dropping KXCPIYOY-26NOV-T4.4
+2026-06-10 19:16:36,527  lip_farmer  programs: 2791 active liquidity tickers, $58226/day total
+2026-06-10 19:17:08,457  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $910, worst-loss $480, est $90.02/day
+2026-06-10 19:17:08,505  lip_farmer  dropping KXCPICOREYOY-26AUG-T2.5
+2026-06-10 19:17:08,506  lip_farmer  dropping KXCPICOREYOY-26AUG-T2.6
+2026-06-10 19:22:07,825  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $910, worst-loss $480, est $89.24/day
+2026-06-10 19:22:07,838  lip_farmer  dropping KXCPIYOY-26NOV-T3.3
+2026-06-10 19:26:36,205  lip_farmer  programs: 2782 active liquidity tickers, $56036/day total
+2026-06-10 19:27:10,946  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $910, worst-loss $480, est $95.97/day
+2026-06-10 19:27:10,949  lip_farmer  dropping KXPOWERKWH-26JUL14-T20.0
+2026-06-10 19:27:10,949  lip_farmer  dropping KXCPICOREYOY-26AUG-T2.1
+2026-06-10 19:32:11,506  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $930, worst-loss $480, est $107.65/day
+2026-06-10 19:32:11,509  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.7
+2026-06-10 19:36:36,899  lip_farmer  programs: 2782 active liquidity tickers, $56036/day total
+2026-06-10 19:37:11,673  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $920, worst-loss $470, est $104.87/day
+2026-06-10 19:37:11,675  lip_farmer  dropping KXSBUXA-28JANSTORES-41900
+2026-06-10 19:42:12,453  lip_alloc  allocation: 17 candidates -> 17 chosen, capital $980, worst-loss $500, est $94.79/day
+2026-06-10 19:46:37,609  lip_farmer  programs: 2782 active liquidity tickers, $56036/day total
+2026-06-10 19:47:12,529  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $940, worst-loss $480, est $95.43/day
+2026-06-10 19:47:12,536  lip_farmer  dropping KXPOWERKWH-26JUL14-T19.0
+2026-06-10 19:47:12,537  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.8
+2026-06-10 19:52:12,744  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $940, worst-loss $480, est $95.66/day
+2026-06-10 19:52:12,747  lip_farmer  dropping KXSPACEXSECTOR-X-COMMUNICA
+2026-06-10 19:56:38,339  lip_farmer  programs: 2782 active liquidity tickers, $56036/day total
+2026-06-10 19:57:13,403  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $919, worst-loss $480, est $106.55/day
+2026-06-10 19:57:13,406  lip_farmer  dropping KXCPICOREYOY-26SEP-T2.3
+2026-06-10 19:57:13,406  lip_farmer  dropping KXCPIYOY-26NOV-T3.0
+2026-06-10 19:57:13,406  lip_farmer  dropping KXCPICOREYOY-26SEP-T2.5
+2026-06-10 20:02:14,502  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $899, worst-loss $480, est $109.15/day
+2026-06-10 20:02:14,505  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.4
+2026-06-10 20:02:14,505  lip_farmer  dropping KXCPICORE-26AUG-T0.9
+2026-06-10 20:06:39,175  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:07:18,955  lip_alloc  allocation: 24 candidates -> 17 chosen, capital $919, worst-loss $490, est $134.72/day
+2026-06-10 20:07:18,956  lip_farmer  dropping KXCCLA-28JANALBD-97700000.0
+2026-06-10 20:07:18,956  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.9
+2026-06-10 20:07:18,956  lip_farmer  dropping KXCPICOREYOY-26AUG-T2.2
+2026-06-10 20:12:19,280  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $899, worst-loss $480, est $110.74/day
+2026-06-10 20:12:19,281  lip_farmer  dropping KXCPIYOY-26SEP-T4.8
+2026-06-10 20:12:19,282  lip_farmer  dropping KXCPICOREYOY-26NOV-T2.2
+2026-06-10 20:16:40,033  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:17:19,454  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $899, worst-loss $480, est $106.78/day
+2026-06-10 20:17:19,456  lip_farmer  dropping KXCPICORE-26SEP-T0.6
+2026-06-10 20:22:19,794  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $899, worst-loss $480, est $108.04/day
+2026-06-10 20:22:19,796  lip_farmer  dropping KXPRIMARYTURNOUT-MAYORLA26-875000
+2026-06-10 20:26:40,137  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:27:20,414  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $899, worst-loss $480, est $115.17/day
+2026-06-10 20:27:20,416  lip_farmer  dropping KXSBUXA-28JANSTORES-42000
+2026-06-10 20:32:20,631  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $909, worst-loss $480, est $110.08/day
+2026-06-10 20:32:20,633  lip_farmer  dropping KXWCOCUSA-26JUN13B-EVE
+2026-06-10 20:36:40,895  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:37:20,837  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $899, worst-loss $480, est $112.18/day
+2026-06-10 20:37:20,840  lip_farmer  dropping KXCYTISINICLINE-26-CA
+2026-06-10 20:42:21,327  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $899, worst-loss $480, est $116.44/day
+2026-06-10 20:42:21,330  lip_farmer  dropping KXWCPRICE-26JULWCFINAL-8500
+2026-06-10 20:46:41,223  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:47:22,339  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $899, worst-loss $480, est $113.58/day
+2026-06-10 20:47:22,342  lip_farmer  dropping KXPERUPRESMOV-26JUN07-KFUJ-P1
+2026-06-10 20:52:22,317  lip_alloc  allocation: 24 candidates -> 16 chosen, capital $899, worst-loss $480, est $115.14/day
+2026-06-10 20:52:22,320  lip_farmer  dropping KXCYTISINICLINE-26-CA
+2026-06-10 20:56:42,548  lip_farmer  programs: 2591 active liquidity tickers, $45297/day total
+2026-06-10 20:57:22,981  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $896, worst-loss $480, est $116.57/day
+2026-06-10 20:57:22,983  lip_farmer  dropping KXCMGA-28JANRESTS-4400
+2026-06-10 21:02:23,171  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $896, worst-loss $480, est $119.77/day
+2026-06-10 21:02:23,173  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-10 21:06:42,519  lip_farmer  programs: 2639 active liquidity tickers, $47154/day total
+2026-06-10 21:07:24,306  lip_alloc  allocation: 38 candidates -> 21 chosen, capital $850, worst-loss $500, est $526.91/day
+2026-06-10 21:07:24,308  lip_farmer  dropping KXWCOCUSA-26JUN13B-TUR
+2026-06-10 21:07:24,309  lip_farmer  dropping KXTOPALBUMRECORD-YOU-OLI-4
+2026-06-10 21:07:24,309  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-HPIN-P57
+2026-06-10 21:07:24,309  lip_farmer  dropping KXSPACEXSECTOR-X-INDUSTRIA
+2026-06-10 21:07:24,309  lip_farmer  dropping KXWCOCUSA-26JUN13-HOT
+2026-06-10 21:07:24,309  lip_farmer  dropping KXWCOCMEX-26JUN12-HIP
+2026-06-10 21:07:24,309  lip_farmer  dropping KXCPICORE-26AUG-T0.6
+2026-06-10 21:07:24,309  lip_farmer  dropping KXCPICORE-26OCT-T0.4
+2026-06-10 21:07:24,309  lip_farmer  dropping KXTRUMPACT-26JUN07-T3
+2026-06-10 21:07:24,309  lip_farmer  dropping KXDJTATTACKNETANYAHU-26JUN-26JUN20
+2026-06-10 21:18:32,365  lip_api  GET /trade-api/v2/markets/KXWCSONG-26JUL25-DNA/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-10 21:20:48,622  lip_alloc  allocation: 28 candidates -> 21 chosen, capital $880, worst-loss $500, est $351.73/day
+2026-06-10 21:20:48,626  lip_farmer  dropping KXTRUEV-26JUN11-T1165.33
+2026-06-10 21:20:48,626  lip_farmer  dropping KXTRUEV-26JUN11-T1175.33
+2026-06-10 21:20:48,626  lip_farmer  dropping KXTRUEV-26JUN11-T1265.33
+2026-06-10 21:26:13,402  lip_farmer  programs: 2639 active liquidity tickers, $47154/day total
+2026-06-10 21:26:53,851  lip_alloc  allocation: 23 candidates -> 20 chosen, capital $940, worst-loss $500, est $177.89/day
+2026-06-10 21:26:53,853  lip_farmer  dropping KXTRUEV-26JUN11-T1295.33
+2026-06-10 21:26:53,853  lip_farmer  dropping KXTRUEV-26JUN11-T1275.33
+2026-06-10 21:26:53,853  lip_farmer  dropping KXTRUEV-26JUN11-T1305.33
+2026-06-10 21:26:53,853  lip_farmer  dropping KXHBUDGETRES-26JUN-26AUG01
+2026-06-10 21:26:53,853  lip_farmer  dropping KXTRUEV-26JUN11-T1285.33
+2026-06-10 21:26:53,853  lip_farmer  dropping KXSBUDGETRES-26JUN-26AUG01
+2026-06-10 21:31:53,979  lip_alloc  allocation: 35 candidates -> 17 chosen, capital $820, worst-loss $490, est $334.57/day
+2026-06-10 21:31:53,981  lip_farmer  dropping KXCAPRIMARY-27FIRST26-JGIB
+2026-06-10 21:31:53,981  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-HPIN-P13
+2026-06-10 21:31:53,981  lip_farmer  dropping KXCPICORE-26OCT-T0.0
+2026-06-10 21:31:53,981  lip_farmer  dropping KXHBUDGETRES-26JUN-26OCT01
+2026-06-10 21:31:53,981  lip_farmer  dropping KXTRUEV-26JUN11-T1185.33
+2026-06-10 21:31:53,981  lip_farmer  dropping KXCMGA-28JANRESTS-4380
+2026-06-10 21:31:53,981  lip_farmer  dropping KXHBUDGETRES-26JUN-27JAN01
+2026-06-10 21:31:53,981  lip_farmer  dropping KXCPICORE-26AUG-T0.5
+2026-06-10 21:31:53,981  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-10 21:31:53,981  lip_farmer  dropping KXPERUPRESMOV-26JUN07-RSAN-P1
+2026-06-10 21:31:53,982  lip_farmer  dropping KXWCATTENDSWIFT-26JUL20-TAY
+2026-06-10 21:36:14,006  lip_farmer  programs: 2639 active liquidity tickers, $47154/day total
+2026-06-10 21:36:53,293  lip_alloc  allocation: 32 candidates -> 17 chosen, capital $890, worst-loss $490, est $450.04/day
+2026-06-10 21:36:53,296  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-NSHA-P13
+2026-06-10 21:36:53,296  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-NSHA-P4
+2026-06-10 21:36:53,296  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-NSHA-P7
+2026-06-10 21:36:53,296  lip_farmer  dropping KXTRUEV-26JUN11-T1235.33
+2026-06-10 21:36:53,296  lip_farmer  dropping KXNBAATTEND-26KNICKS-SAB
+2026-06-10 21:36:53,297  lip_farmer  dropping KXTRUEV-26JUN11-T1245.33
+2026-06-10 21:41:53,805  lip_alloc  allocation: 29 candidates -> 17 chosen, capital $880, worst-loss $480, est $443.42/day
+2026-06-10 21:41:53,808  lip_farmer  dropping KXTRUEV-26JUN11-T1165.33
+2026-06-10 21:41:53,808  lip_farmer  dropping KXTRUEV-26JUN11-T1275.33
+2026-06-10 21:41:53,808  lip_farmer  dropping KXTRUEV-26JUN11-T1285.33
+2026-06-10 21:46:14,528  lip_farmer  programs: 2639 active liquidity tickers, $47154/day total
+2026-06-10 21:46:54,815  lip_alloc  allocation: 28 candidates -> 18 chosen, capital $960, worst-loss $500, est $460.93/day
+2026-06-10 21:46:54,817  lip_farmer  dropping KXTRUEV-26JUN11-T1295.33
+2026-06-10 21:52:00,312  lip_alloc  allocation: 29 candidates -> 18 chosen, capital $960, worst-loss $500, est $465.85/day
+2026-06-10 21:52:00,315  lip_farmer  dropping KXTRUEV-26JUN11-T1305.33
+2026-06-10 21:56:19,517  lip_farmer  programs: 2639 active liquidity tickers, $47154/day total
+2026-06-10 21:57:00,976  lip_alloc  allocation: 34 candidates -> 16 chosen, capital $940, worst-loss $480, est $425.77/day
+2026-06-10 21:57:00,979  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-10 21:57:00,979  lip_farmer  dropping KXSPACEXSECTOR-X-COMMUNICA
+2026-06-10 22:02:01,378  lip_alloc  allocation: 31 candidates -> 16 chosen, capital $950, worst-loss $480, est $417.38/day
+2026-06-10 22:02:01,380  lip_farmer  dropping KXTRUEV-26JUN11-T1175.33
+2026-06-10 22:06:20,203  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:07:01,965  lip_alloc  allocation: 31 candidates -> 18 chosen, capital $970, worst-loss $500, est $457.95/day
+2026-06-10 22:07:01,969  lip_farmer  dropping KXSBUDGETRES-26JUN-27JAN01
+2026-06-10 22:07:01,969  lip_farmer  dropping KXSBUDGETRES-26JUN-26OCT01
+2026-06-10 22:12:02,256  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $860, worst-loss $480, est $237.12/day
+2026-06-10 22:12:02,258  lip_farmer  dropping KXTRUEV-26JUN11-T1225.33
+2026-06-10 22:12:02,259  lip_farmer  dropping KXU3-26NOV-T5.0
+2026-06-10 22:12:02,259  lip_farmer  dropping KXAGNOMSCR-26-SGOL
+2026-06-10 22:12:02,259  lip_farmer  dropping KXWCSONG-26JUL25-DNA
+2026-06-10 22:12:02,259  lip_farmer  dropping KXU3-26NOV-T4.9
+2026-06-10 22:12:02,259  lip_farmer  dropping KXSBUDGETRES-26JUN-26AUG01
+2026-06-10 22:12:02,259  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-10 22:12:02,260  lip_farmer  dropping KXAGNOMSCR-26-DSTU
+2026-06-10 22:12:02,260  lip_farmer  dropping KXU3-26NOV-T3.8
+2026-06-10 22:12:02,260  lip_farmer  dropping KXWCATTENDSWIFT-26JUL20-TAY
+2026-06-10 22:16:20,823  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:17:02,304  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $880, worst-loss $480, est $209.29/day
+2026-06-10 22:17:02,309  lip_farmer  dropping KXTRUEV-26JUN11-T1165.33
+2026-06-10 22:17:02,310  lip_farmer  dropping KXTRUEV-26JUN11-T1295.33
+2026-06-10 22:17:02,310  lip_farmer  dropping KXTRUEV-26JUN11-T1305.33
+2026-06-10 22:22:03,488  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $880, worst-loss $480, est $208.45/day
+2026-06-10 22:22:03,491  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-10 22:26:21,408  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:27:04,572  lip_alloc  allocation: 26 candidates -> 16 chosen, capital $880, worst-loss $480, est $223.30/day
+2026-06-10 22:27:04,574  lip_farmer  dropping KXCPICORE-26OCT-T0.6
+2026-06-10 22:27:04,575  lip_farmer  dropping KXCPICORE-26OCT-T0.9
+2026-06-10 22:32:04,125  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $880, worst-loss $480, est $202.25/day
+2026-06-10 22:32:04,127  lip_farmer  dropping KXCPICORE-26AUG-T0.6
+2026-06-10 22:36:22,235  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:37:04,849  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $890, worst-loss $480, est $192.39/day
+2026-06-10 22:37:04,850  lip_farmer  dropping KXTRUEV-26JUN11-T1215.33
+2026-06-10 22:42:05,951  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $890, worst-loss $480, est $190.27/day
+2026-06-10 22:42:05,953  lip_farmer  dropping KXNBAATTEND-26KNICKS-SAB
+2026-06-10 22:46:23,195  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:47:05,851  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $870, worst-loss $480, est $187.36/day
+2026-06-10 22:47:05,853  lip_farmer  dropping KXPRIMARYPLACE-GOVMENOMD26-3-NSHA
+2026-06-10 22:47:05,853  lip_farmer  dropping KXSPOTA-28JANPREMSUBS-324000000
+2026-06-10 22:52:06,602  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $880, worst-loss $480, est $214.89/day
+2026-06-10 22:52:06,607  lip_farmer  dropping KXTRUEV-26JUN11-T1265.33
+2026-06-10 22:52:06,607  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-NSHA-P4
+2026-06-10 22:52:06,607  lip_farmer  dropping KXTRUEV-26JUN11-T1285.33
+2026-06-10 22:56:23,068  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 22:57:06,433  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $860, worst-loss $480, est $189.77/day
+2026-06-10 22:57:06,436  lip_farmer  dropping KXSPOTA-28JANPREMSUBS-328000000
+2026-06-10 22:57:06,436  lip_farmer  dropping KXTRUEV-26JUN11-T1245.33
+2026-06-10 22:57:06,436  lip_farmer  dropping KXPERUPRESMOV-26JUN07-RSAN-P1
+2026-06-10 23:02:06,972  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $890, worst-loss $480, est $150.37/day
+2026-06-10 23:02:06,975  lip_farmer  dropping KXAGNOMSCR-26-SGOL
+2026-06-10 23:02:06,975  lip_farmer  dropping KXSBUDGETRES-26JUN-26AUG01
+2026-06-10 23:02:06,975  lip_farmer  dropping KXAGNOMSCR-26-DSTU
+2026-06-10 23:06:23,347  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 23:07:08,010  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $890, worst-loss $480, est $151.02/day
+2026-06-10 23:07:08,014  lip_farmer  dropping KXGEMINI35OY-27-NA-6
+2026-06-10 23:07:08,014  lip_farmer  dropping KXPRIMARYPLACE-GOVMENOMD26-2-TJAC
+2026-06-10 23:12:09,225  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $910, worst-loss $480, est $145.53/day
+2026-06-10 23:12:09,229  lip_farmer  dropping KXATTENDUFC250-26JUN-JKUS
+2026-06-10 23:12:09,229  lip_farmer  dropping KXWCOCUSA-26JUN13B-LOW
+2026-06-10 23:16:24,291  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 23:17:09,231  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $910, worst-loss $480, est $177.16/day
+2026-06-10 23:17:09,233  lip_farmer  dropping KXLIUKWINNERS-26-ELL
+2026-06-10 23:17:09,233  lip_farmer  dropping KXWCOCUSA-26JUN13B-TON
+2026-06-10 23:22:09,503  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $920, worst-loss $480, est $155.86/day
+2026-06-10 23:22:09,505  lip_farmer  dropping KXPERUPRESMOV-26JUN07-RSAN-P1
+2026-06-10 23:26:25,157  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 23:27:10,965  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $920, worst-loss $480, est $146.71/day
+2026-06-10 23:27:10,967  lip_farmer  dropping KXSBUDGETRES-26JUN-26AUG01
+2026-06-10 23:32:10,612  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $920, worst-loss $480, est $137.44/day
+2026-06-10 23:36:25,941  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 23:37:11,223  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $920, worst-loss $480, est $141.40/day
+2026-06-10 23:37:11,226  lip_farmer  dropping KXPRIMARYPLACE-GOVMENOMD26-2-TJAC
+2026-06-10 23:42:11,929  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $920, worst-loss $480, est $143.43/day
+2026-06-10 23:46:25,945  lip_farmer  programs: 2642 active liquidity tickers, $47323/day total
+2026-06-10 23:47:12,527  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $920, worst-loss $480, est $156.23/day
+2026-06-10 23:47:12,530  lip_farmer  dropping KXU3-26NOV-T4.0
+2026-06-10 23:47:12,530  lip_farmer  dropping KXPLATNERCOLLINSDEBATE-26
+2026-06-10 23:47:12,530  lip_farmer  dropping KXCPICORE-26NOV-T0.0
+2026-06-10 23:52:13,081  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $920, worst-loss $480, est $154.16/day
+2026-06-10 23:56:26,731  lip_farmer  programs: 2640 active liquidity tickers, $47322/day total
+2026-06-10 23:57:14,259  lip_alloc  allocation: 24 candidates -> 16 chosen, capital $920, worst-loss $480, est $143.73/day
+2026-06-10 23:57:14,264  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 00:02:14,220  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $899, worst-loss $480, est $141.13/day
+2026-06-11 00:02:14,223  lip_farmer  dropping KXCPICORE-26AUG-T0.5
+2026-06-11 00:06:27,297  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:07:14,820  lip_alloc  allocation: 24 candidates -> 16 chosen, capital $890, worst-loss $480, est $169.21/day
+2026-06-11 00:07:14,824  lip_farmer  dropping KXMAMDANIEO-26JUN13-T0
+2026-06-11 00:07:14,824  lip_farmer  dropping KXCPICORE-26OCT-T0.8
+2026-06-11 00:07:14,824  lip_farmer  dropping KXATTENDUFC250-26JUN-DJR
+2026-06-11 00:12:15,434  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $879, worst-loss $480, est $134.60/day
+2026-06-11 00:12:15,436  lip_farmer  dropping KXU3-26NOV-T4.2
+2026-06-11 00:16:27,601  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:17:15,898  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $900, worst-loss $480, est $137.33/day
+2026-06-11 00:17:15,900  lip_farmer  dropping KXMAMDANIEO-26JUN13-T0
+2026-06-11 00:22:16,473  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $890, worst-loss $480, est $153.00/day
+2026-06-11 00:22:16,476  lip_farmer  dropping KXPLATNERCOLLINSDEBATE-26
+2026-06-11 00:26:27,893  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:27:17,236  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $900, worst-loss $480, est $125.31/day
+2026-06-11 00:27:17,240  lip_farmer  dropping KXPRIMARYMOV-SENATEIAD26-JTUR-P27
+2026-06-11 00:32:17,745  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $900, worst-loss $480, est $125.42/day
+2026-06-11 00:32:17,746  lip_farmer  dropping KXPLATNERCOLLINSDEBATE-26
+2026-06-11 00:36:28,005  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:37:18,701  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $900, worst-loss $480, est $153.45/day
+2026-06-11 00:37:18,705  lip_farmer  dropping KXATTENDUFC250-26JUN-MWAH
+2026-06-11 00:42:19,401  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $930, worst-loss $480, est $108.00/day
+2026-06-11 00:42:19,405  lip_farmer  dropping KXTRUEV-26JUN11-T1185.33
+2026-06-11 00:42:19,406  lip_farmer  dropping KXTRUEV-26JUN11-T1175.33
+2026-06-11 00:42:19,406  lip_farmer  dropping KXPRATTCONCEDE-27JAN01-JUN15
+2026-06-11 00:46:28,983  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:47:19,354  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $930, worst-loss $480, est $95.77/day
+2026-06-11 00:47:19,356  lip_farmer  dropping KXTRUEV-26JUN11-T1225.33
+2026-06-11 00:52:19,747  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $940, worst-loss $480, est $65.91/day
+2026-06-11 00:52:19,751  lip_farmer  dropping KXPLATNERCOLLINSDEBATE-26
+2026-06-11 00:52:19,751  lip_farmer  dropping KXTRUEV-26JUN11-T1255.33
+2026-06-11 00:56:29,451  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 00:57:20,071  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $950, worst-loss $480, est $87.98/day
+2026-06-11 00:57:20,075  lip_farmer  dropping KXGEMINI35OY-27-NA-6
+2026-06-11 01:02:21,222  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $950, worst-loss $480, est $76.35/day
+2026-06-11 01:02:21,226  lip_farmer  dropping KXTRUEV-26JUN11-T1225.33
+2026-06-11 01:02:21,226  lip_farmer  dropping KXTRUEV-26JUN11-T1215.33
+2026-06-11 01:06:30,724  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:07:21,371  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $950, worst-loss $480, est $76.72/day
+2026-06-11 01:07:21,373  lip_farmer  dropping KXSHELTERCPI-26JUL14-T428.4
+2026-06-11 01:12:22,008  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $950, worst-loss $480, est $169.64/day
+2026-06-11 01:12:22,011  lip_farmer  dropping KXGEMINI35OY-27-NA-6
+2026-06-11 01:12:22,011  lip_farmer  dropping KXNBAFINALSPRICE-26JUNGAME5-1100
+2026-06-11 01:12:22,011  lip_farmer  dropping KXNBAATTEND-26KNICKS-SAB
+2026-06-11 01:16:31,471  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:17:22,003  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $950, worst-loss $480, est $64.20/day
+2026-06-11 01:17:22,005  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-11 01:17:22,006  lip_farmer  dropping KXAGNOMSCR-26-SGOL
+2026-06-11 01:17:22,006  lip_farmer  dropping KXAGNOMSCR-26-DSTU
+2026-06-11 01:22:23,160  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $950, worst-loss $480, est $63.09/day
+2026-06-11 01:22:23,163  lip_farmer  dropping KXWCOCMEX-26JUN12-UND
+2026-06-11 01:26:33,393  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:27:23,417  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $940, worst-loss $480, est $62.98/day
+2026-06-11 01:27:23,419  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 01:32:23,511  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $930, worst-loss $480, est $60.80/day
+2026-06-11 01:32:23,514  lip_farmer  dropping KXCYTISINICLINE-26-CA
+2026-06-11 01:36:33,821  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:37:23,825  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $940, worst-loss $480, est $80.48/day
+2026-06-11 01:37:23,827  lip_farmer  dropping KXGEMINI35OY-27-NA-6
+2026-06-11 01:37:23,828  lip_farmer  dropping KXCPICORE-26NOV-T0.7
+2026-06-11 01:42:24,652  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $940, worst-loss $480, est $76.34/day
+2026-06-11 01:42:24,654  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-11 01:42:24,654  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 01:42:24,654  lip_farmer  dropping KXLOVEISLANDUSARANK-26AUG31RTOP3-BEGA
+2026-06-11 01:46:34,188  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:47:25,327  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $940, worst-loss $480, est $74.66/day
+2026-06-11 01:47:25,330  lip_farmer  dropping KXSBUXA-28JANCOMPTXN-2
+2026-06-11 01:47:25,331  lip_farmer  dropping KXPRIMARYPLACE-GOVMENOMD26-2-TJAC
+2026-06-11 01:52:26,240  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $950, worst-loss $480, est $95.07/day
+2026-06-11 01:52:26,243  lip_farmer  dropping KXPERUINVALIDATE-26JUN-26JUL28
+2026-06-11 01:52:26,243  lip_farmer  dropping KXU3-26NOV-T3.7
+2026-06-11 01:52:26,243  lip_farmer  dropping KXAAAGASM-26JUN30-4.70
+2026-06-11 01:56:35,623  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 01:57:26,793  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $950, worst-loss $480, est $80.27/day
+2026-06-11 01:57:26,796  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-11 01:57:26,796  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 02:02:27,178  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $950, worst-loss $480, est $78.92/day
+2026-06-11 02:06:37,395  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:07:27,392  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $950, worst-loss $480, est $92.66/day
+2026-06-11 02:07:27,395  lip_farmer  dropping KXPERUINVALIDATE-26JUN-26JUL28
+2026-06-11 02:12:28,722  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $940, worst-loss $480, est $86.53/day
+2026-06-11 02:12:28,725  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 02:16:39,109  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:17:29,453  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $940, worst-loss $480, est $84.82/day
+2026-06-11 02:22:29,620  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $940, worst-loss $480, est $101.80/day
+2026-06-11 02:22:29,623  lip_farmer  dropping KXWCOCUSA-26JUN13B-WAI
+2026-06-11 02:26:39,767  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:27:29,936  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $950, worst-loss $480, est $90.34/day
+2026-06-11 02:32:29,888  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $950, worst-loss $480, est $77.02/day
+2026-06-11 02:32:29,891  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 02:36:40,160  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:37:30,379  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $950, worst-loss $480, est $81.95/day
+2026-06-11 02:37:30,381  lip_farmer  dropping KXWCOCUSA-26JUN13-ET
+2026-06-11 02:37:30,382  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-11 02:42:30,760  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $950, worst-loss $480, est $84.75/day
+2026-06-11 02:42:30,764  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 02:46:40,976  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:47:31,655  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $920, worst-loss $480, est $94.91/day
+2026-06-11 02:47:31,658  lip_farmer  dropping KXPANAMATRAFFIC-26JUL01-A1200
+2026-06-11 02:47:31,658  lip_farmer  dropping KXCMGA-28JANRESTS-4330
+2026-06-11 02:52:31,906  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $910, worst-loss $480, est $82.95/day
+2026-06-11 02:52:31,910  lip_farmer  dropping KXATTENDUFC250-26JUN-JKUS
+2026-06-11 02:56:42,076  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 02:57:32,069  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $910, worst-loss $480, est $90.54/day
+2026-06-11 02:57:32,071  lip_farmer  dropping KXPERUINVALIDATE-26JUN-26JUL28
+2026-06-11 03:02:33,313  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $950, worst-loss $480, est $94.52/day
+2026-06-11 03:02:33,317  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-11 03:02:33,318  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 03:06:43,561  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:07:33,759  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $950, worst-loss $480, est $94.52/day
+2026-06-11 03:12:33,947  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $950, worst-loss $480, est $94.52/day
+2026-06-11 03:16:44,376  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:17:34,555  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $950, worst-loss $480, est $104.19/day
+2026-06-11 03:17:34,558  lip_farmer  dropping KXPERUINVALIDATE-26JUN-26JUL28
+2026-06-11 03:22:35,653  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $950, worst-loss $480, est $104.19/day
+2026-06-11 03:26:12,448  lip_api  GET /trade-api/v2/markets/KXCAPRIMARY-27FIRST26-JGIB/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCAPRIMARY-27FIRST26-JGIB/orderbook), retrying
+2026-06-11 03:26:13,469  lip_api  GET /trade-api/v2/markets/KXCAPRIMARY-27FIRST26-JGIB/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCAPRIMARY-27FIRST26-JGIB/orderbook), retrying
+2026-06-11 03:26:15,492  lip_alloc  orderbook KXCAPRIMARY-27FIRST26-JGIB failed: 503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCAPRIMARY-27FIRST26-JGIB/orderbook
+2026-06-11 03:26:15,525  lip_api  GET /trade-api/v2/markets/KXCPIYOY-26NOV-T3.1/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCPIYOY-26NOV-T3.1/orderbook), retrying
+2026-06-11 03:26:16,542  lip_api  GET /trade-api/v2/markets/KXCPIYOY-26NOV-T3.1/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCPIYOY-26NOV-T3.1/orderbook), retrying
+2026-06-11 03:26:18,563  lip_alloc  orderbook KXCPIYOY-26NOV-T3.1 failed: 503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXCPIYOY-26NOV-T3.1/orderbook
+2026-06-11 03:26:44,895  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:27:35,086  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $950, worst-loss $480, est $105.36/day
+2026-06-11 03:27:35,090  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-11 03:32:24,079  lip_api  GET /trade-api/v2/markets/KXEGGS-JUN26-0/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXEGGS-JUN26-0/orderbook), retrying
+2026-06-11 03:32:25,102  lip_api  GET /trade-api/v2/markets/KXEGGS-JUN26-0/orderbook failed (503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXEGGS-JUN26-0/orderbook), retrying
+2026-06-11 03:32:27,120  lip_alloc  orderbook KXEGGS-JUN26-0 failed: 503 Server Error: Service Unavailable for url: https://api.elections.kalshi.com/trade-api/v2/markets/KXEGGS-JUN26-0/orderbook
+2026-06-11 03:32:38,322  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $950, worst-loss $480, est $105.36/day
+2026-06-11 03:36:45,189  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:37:36,296  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $950, worst-loss $480, est $105.36/day
+2026-06-11 03:42:36,413  lip_alloc  allocation: 25 candidates -> 16 chosen, capital $930, worst-loss $480, est $155.10/day
+2026-06-11 03:42:36,418  lip_farmer  dropping KXSPOTA-28JANMAU-800000000
+2026-06-11 03:42:36,418  lip_farmer  dropping KXCPIYOY-26NOV-T3.1
+2026-06-11 03:46:46,768  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:47:37,131  lip_alloc  allocation: 21 candidates -> 16 chosen, capital $930, worst-loss $480, est $155.10/day
+2026-06-11 03:52:37,441  lip_alloc  allocation: 20 candidates -> 16 chosen, capital $930, worst-loss $480, est $157.66/day
+2026-06-11 03:56:47,784  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 03:57:37,968  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $930, worst-loss $480, est $160.04/day
+2026-06-11 03:57:37,970  lip_farmer  dropping KXCAPRIMARY-27FIRST26-JGIB
+2026-06-11 04:02:37,892  lip_alloc  allocation: 23 candidates -> 16 chosen, capital $930, worst-loss $480, est $160.04/day
+2026-06-11 04:15:52,932  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1205.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 05:52:43,917  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1205.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 06:03:29,320  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1205.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 06:15:33,570  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1205.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 06:26:59,828  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1205.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 06:27:34,827  lip_farmer  programs: 2462 active liquidity tickers, $44377/day total
+2026-06-11 06:45:46,864  lip_api  GET /trade-api/v2/markets failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 06:46:19,076  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $910, worst-loss $480, est $103.41/day
+2026-06-11 06:46:19,079  lip_farmer  dropping KXUSEDCARCPI-26JUL14-T184.0
+2026-06-11 06:46:19,079  lip_farmer  dropping KXCPICORE-26NOV-T0.6
+2026-06-11 06:46:19,079  lip_farmer  dropping KXCPICOREYOY-26AUG-T3.3
+2026-06-11 06:46:19,079  lip_farmer  dropping KXCPIYOY-26NOV-T4.7
+2026-06-11 06:46:19,079  lip_farmer  dropping KXCPIYOY-26SEP-T4.9
+2026-06-11 06:46:19,079  lip_farmer  dropping KXNBAFINALSPRICE-26JUNGAME5-1100
+2026-06-11 06:46:19,079  lip_farmer  dropping KXTRUEV-26JUN11-T1195.33
+2026-06-11 07:35:40,707  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 07:43:39,514  lip_api  GET /trade-api/v2/markets/KXNOTE10Y-26DEC31-T5.14/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 07:51:54,683  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 08:04:27,253  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 08:10:31,723  lip_api  GET /trade-api/v2/markets/KXPERUINVALIDATE-26JUN-26JUL28/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 09:05:16,346  lip_api  GET /trade-api/v2/markets/KXCPIYOY-26NOV-T3.8/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 09:05:17,454  lip_alloc  allocation: 15 candidates -> 15 chosen, capital $829, worst-loss $450, est $89.25/day
+2026-06-11 09:05:17,454  lip_farmer  dropping KXTRUEV-26JUN11-T1225.33
+2026-06-11 09:05:17,454  lip_farmer  dropping KXSPACEXSECTOR-X-COMMUNICA
+2026-06-11 09:05:17,454  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-11 09:05:17,455  lip_farmer  dropping KXNOTE10Y-26DEC31-T5.14
+2026-06-11 09:15:41,970  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 10:06:06,201  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 10:24:05,245  lip_api  GET /trade-api/v2/markets/KXCPICORE-26OCT-T0.0/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 10:33:40,456  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1235.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 10:33:44,372  lip_farmer  programs: 2531 active liquidity tickers, $45858/day total
+2026-06-11 10:34:36,978  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $940, worst-loss $480, est $252.22/day
+2026-06-11 10:34:36,981  lip_farmer  dropping KXPERUINVALIDATE-26JUN-26JUL28
+2026-06-11 10:34:36,981  lip_farmer  dropping KXWCOCUSA-26JUN13-LAS
+2026-06-11 10:34:36,981  lip_farmer  dropping KXTRUEV-26JUN11-T1235.33
+2026-06-11 10:34:36,981  lip_farmer  dropping KXMAMDANIEO-26JUN13-T0
+2026-06-11 10:34:36,981  lip_farmer  dropping KXNBAATTEND-26KNICKS-SAB
+2026-06-11 10:34:36,981  lip_farmer  dropping KXTRUEV-26JUN11-T1205.33
+2026-06-11 10:34:36,981  lip_farmer  dropping KXATTENDUFC250-26JUN-KFOR
+2026-06-11 11:06:56,435  lip_api  GET /trade-api/v2/markets/KXLIUSAELIMINATION-26JUN11-KCC/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 12:06:15,134  lip_api  GET /trade-api/v2/markets/KXLIUSAELIMINATION-26JUN11-KCC/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 13:06:30,953  lip_api  GET /trade-api/v2/markets/KXLIUSAELIMINATION-26JUN11-KCC/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 13:37:53,454  lip_api  GET /trade-api/v2/markets/KXLIUSAELIMINATION-26JUN11-KCC/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 13:45:30,373  lip_api  GET /trade-api/v2/markets failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 13:46:01,749  lip_alloc  allocation: 11 candidates -> 11 chosen, capital $630, worst-loss $330, est $43.39/day
+2026-06-11 13:46:01,755  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-TRI
+2026-06-11 13:46:01,755  lip_farmer  dropping KXTRUMPWORLDCUP-26-DJT-2
+2026-06-11 13:46:01,756  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-CAL
+2026-06-11 13:46:01,756  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-HPIN-P13
+2026-06-11 13:46:01,756  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-KAY
+2026-06-11 13:46:01,756  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-SIN
+2026-06-11 13:46:01,756  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-ANI
+2026-06-11 13:46:01,756  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-SOL
+2026-06-11 13:46:01,757  lip_farmer  dropping KXNBAFINALSPRICE-26JUNGAME5-1300
+2026-06-11 13:46:01,757  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-KCC
+2026-06-11 14:06:33,778  lip_api  GET /trade-api/v2/markets/KXLOWTLAX-26JUN11-B62.5/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 14:20:39,654  lip_api  GET /trade-api/v2/markets/KXSPACEXSECTOR-X-COMMUNICA/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 14:35:52,590  lip_api  GET /trade-api/v2/markets/KXLOWTLAX-26JUN11-B62.5/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 15:00:06,269  lip_api  GET /trade-api/v2/markets/KXLOWTLAX-26JUN11-B62.5/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 15:00:14,566  lip_farmer  programs: 2664 active liquidity tickers, $54006/day total
+2026-06-11 15:02:19,095  lip_alloc  allocation: 14 candidates -> 14 chosen, capital $713, worst-loss $420, est $123.72/day
+2026-06-11 15:02:19,100  lip_farmer  dropping KXLOWTLAX-26JUN11-B62.5
+2026-06-11 15:02:19,100  lip_farmer  dropping KXSPACEXSECTOR-X-INDUSTRIA
+2026-06-11 15:02:19,100  lip_farmer  dropping KXSPACEXSECTOR-X-COMMUNICA
+2026-06-11 15:02:19,100  lip_farmer  dropping KXAGNOMSCR-26-DSTU
+2026-06-11 15:02:19,100  lip_farmer  dropping KXGEMINI35OY-27-NA-5
+2026-06-11 15:06:59,271  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 15:16:29,937  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 15:22:06,753  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook failed (('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))), retrying
+2026-06-11 15:57:32,969  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Read timed out. (read timeout=15)), retrying
+2026-06-11 15:57:34,020  lip_api  GET /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTRUEV-26JUN11-T1215.33/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 15:58:15,464  lip_alloc  allocation: 14 candidates -> 14 chosen, capital $774, worst-loss $420, est $138.60/day
+2026-06-11 15:58:15,467  lip_farmer  dropping KXLOWTMIA-26JUN12-T79
+2026-06-11 15:58:15,467  lip_farmer  dropping KXLOWTDEN-26JUN12-T48
+2026-06-11 15:58:15,468  lip_farmer  dropping KXPRIMARYMOV-GOVMENOMD26-HPIN-P57
+2026-06-11 16:02:22,987  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:03:14,157  lip_alloc  allocation: 22 candidates -> 16 chosen, capital $834, worst-loss $480, est $194.90/day
+2026-06-11 16:03:14,161  lip_farmer  dropping KXRT-STO-75
+2026-06-11 16:03:14,161  lip_farmer  dropping KXCPICORE-26OCT-T0.5
+2026-06-11 16:03:14,162  lip_farmer  dropping KXCPICOREYOY-26SEP-T2.5
+2026-06-11 16:03:14,162  lip_farmer  dropping KXCPICORE-26NOV-T0.0
+2026-06-11 16:03:14,162  lip_farmer  dropping KXCPICORE-26OCT-T0.0
+2026-06-11 16:08:14,582  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $864, worst-loss $480, est $171.65/day
+2026-06-11 16:08:14,585  lip_farmer  dropping KXLOWTDEN-26JUN12-T48
+2026-06-11 16:08:14,586  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-MEL
+2026-06-11 16:12:23,935  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:13:17,013  lip_alloc  allocation: 14 candidates -> 14 chosen, capital $761, worst-loss $420, est $126.02/day
+2026-06-11 16:13:17,016  lip_farmer  dropping KXCPIYOY-26NOV-T3.8
+2026-06-11 16:13:17,016  lip_farmer  dropping KXLOWTDEN-26JUN12-B48.5
+2026-06-11 16:13:17,016  lip_farmer  dropping KXLOWTMIA-26JUN12-T79
+2026-06-11 16:18:14,862  lip_alloc  allocation: 13 candidates -> 13 chosen, capital $706, worst-loss $390, est $103.00/day
+2026-06-11 16:18:14,866  lip_farmer  dropping KXHIGHTMIN-26JUN12-B84.5
+2026-06-11 16:18:14,866  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-COR
+2026-06-11 16:18:14,866  lip_farmer  dropping KXLOWTDEN-26JUN12-T55
+2026-06-11 16:22:23,693  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:23:15,690  lip_alloc  allocation: 15 candidates -> 15 chosen, capital $816, worst-loss $450, est $91.32/day
+2026-06-11 16:23:15,694  lip_farmer  dropping KXLIUSAELIMINATION-26JUN11-MEL
+2026-06-11 16:28:16,155  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $870, worst-loss $480, est $87.79/day
+2026-06-11 16:28:16,157  lip_farmer  dropping KXTRUEV-26JUN11-T1245.33
+2026-06-11 16:28:16,158  lip_farmer  dropping KXLOWTAUS-26JUN12-T79
+2026-06-11 16:32:25,915  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:33:16,955  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $890, worst-loss $480, est $89.51/day
+2026-06-11 16:33:16,958  lip_farmer  dropping KXWCOCMEX-26JUN12-UND
+2026-06-11 16:38:17,556  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $880, worst-loss $480, est $71.86/day
+2026-06-11 16:38:17,559  lip_farmer  dropping KXLOWTDEN-26JUN12-T55
+2026-06-11 16:42:27,300  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:43:18,034  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $881, worst-loss $480, est $94.00/day
+2026-06-11 16:43:18,039  lip_farmer  dropping KXWCOCUSA-26JUN13-HOT
+2026-06-11 16:43:18,039  lip_farmer  dropping KXMETAA-28JANDAP-3680000000.0
+2026-06-11 16:43:18,040  lip_farmer  dropping KXTEAMSINNCAABBWS-26-NCTACT
+2026-06-11 16:48:18,779  lip_alloc  allocation: 17 candidates -> 16 chosen, capital $864, worst-loss $480, est $81.56/day
+2026-06-11 16:48:18,782  lip_farmer  dropping KXLOWTDEN-26JUN12-B48.5
+2026-06-11 16:52:30,174  lip_farmer  programs: 2695 active liquidity tickers, $54529/day total
+2026-06-11 16:53:20,540  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $854, worst-loss $470, est $80.56/day
+2026-06-11 16:53:20,543  lip_farmer  dropping KXHIGHTSEA-26JUN12-B71.5
+2026-06-11 16:53:20,544  lip_farmer  dropping KXTRUEV-26JUN11-T1215.33
+2026-06-11 16:58:03,133  lip_api  GET /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Read timed out. (read timeout=15)), retrying
+2026-06-11 16:58:34,439  lip_alloc  allocation: 16 candidates -> 16 chosen, capital $860, worst-loss $480, est $62.33/day
+2026-06-11 16:58:34,441  lip_farmer  dropping KXEVENTTIMES-26-TIM-9
+2026-06-11 16:58:34,441  lip_farmer  dropping KXLOWTDEN-26JUN12-B48.5
+2026-06-11 17:02:29,919  lip_farmer  programs: 2694 active liquidity tickers, $54521/day total
+2026-06-11 17:03:19,776  lip_alloc  allocation: 19 candidates -> 16 chosen, capital $870, worst-loss $480, est $79.07/day
+2026-06-11 17:03:19,780  lip_farmer  dropping KXSPOTA-28JANMAU-810000000
+2026-06-11 17:03:19,780  lip_farmer  dropping KXSBUXA-28JANSTORES-41900
+2026-06-11 17:08:19,643  lip_alloc  allocation: 18 candidates -> 16 chosen, capital $900, worst-loss $480, est $72.73/day
+2026-06-11 17:08:19,662  lip_farmer  dropping KXWCOCUSA-26JUN13B-WAI
+2026-06-11 17:08:19,662  lip_farmer  dropping KXTRUEV-26JUN11-T1215.33
+2026-06-11 17:12:33,618  lip_api  GET /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Read timed out. (read timeout=15)), retrying
+2026-06-11 17:12:34,631  lip_api  GET /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:36,699  lip_alloc  orderbook KXENDORSEAOC-26NOV03-AELS failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:12:36,701  lip_api  GET /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:37,707  lip_api  GET /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:39,723  lip_alloc  orderbook KXWCOCUSA-26JUN13B-TUR failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:12:39,728  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:40,738  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:42,755  lip_alloc  orderbook KXCCLA-28JANALBD-97200000.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:12:42,760  lip_api  GET /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:43,769  lip_api  GET /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:45,795  lip_alloc  orderbook KXWCPRICE-26JULWCFINAL-10500 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:12:45,799  lip_api  GET /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:46,818  lip_api  GET /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:48,829  lip_alloc  orderbook KXPRIMARYPLACE-GOVMENOMD26-2-TJAC failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:12:48,919  lip_api  GET /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:12:49,934  lip_api  GET /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:03,225  lip_alloc  orderbook KXAAAGASMAXNY-26DEC31-5.00 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:03,240  lip_api  GET /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:04,252  lip_api  GET /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:06,267  lip_alloc  orderbook KXUSPPIYOY-26JUL15-T6.4 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:06,271  lip_api  GET /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:07,287  lip_api  GET /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:09,304  lip_alloc  orderbook KXSBUDGETRES-26JUN-26AUG01 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:09,309  lip_api  GET /trade-api/v2/markets/KXRT-STO-75/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:10,325  lip_api  GET /trade-api/v2/markets/KXRT-STO-75/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:12,333  lip_alloc  orderbook KXRT-STO-75 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:12,339  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:13,346  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:15,361  lip_alloc  orderbook KXCCLA-28JANALBD-97700000.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:15,364  lip_api  GET /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:16,381  lip_api  GET /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:18,393  lip_alloc  orderbook KXCPICORE-26SEP-T0.6 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:18,398  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:19,414  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:21,428  lip_alloc  orderbook KXTEAMSINNCAABBWS-26-WVTEL failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:21,434  lip_api  GET /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:22,454  lip_api  GET /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:24,464  lip_alloc  orderbook KXHURRICANE-26DEC01CPACTOT-5 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:24,469  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:25,481  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:27,497  lip_alloc  orderbook KXTEAMSINNCAABBWS-26-OLETEL failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:27,502  lip_api  GET /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:28,518  lip_api  GET /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:30,529  lip_alloc  orderbook KXU3-26OCT-T4.8 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:30,533  lip_api  GET /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:31,548  lip_api  GET /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:33,555  lip_alloc  orderbook KXUSEDCARCPI-26JUL14-T180.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:34,578  lip_api  GET /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:35,595  lip_api  GET /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:37,613  lip_alloc  orderbook KXENDORSEAOC-26NOV03-AELS failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXENDORSEAOC-26NOV03-AELS/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:37,616  lip_api  GET /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:38,629  lip_api  GET /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:40,641  lip_alloc  orderbook KXWCOCUSA-26JUN13B-TUR failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCOCUSA-26JUN13B-TUR/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:40,644  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:41,660  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:43,677  lip_alloc  orderbook KXCCLA-28JANALBD-97200000.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97200000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:43,681  lip_api  GET /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:44,691  lip_api  GET /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:46,697  lip_alloc  orderbook KXWCPRICE-26JULWCFINAL-10500 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXWCPRICE-26JULWCFINAL-10500/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:13:46,700  lip_api  GET /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:13:47,716  lip_api  GET /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:06,301  lip_alloc  orderbook KXPRIMARYPLACE-GOVMENOMD26-2-TJAC failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXPRIMARYPLACE-GOVMENOMD26-2-TJAC/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:06,305  lip_api  GET /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:07,315  lip_api  GET /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:09,329  lip_alloc  orderbook KXAAAGASMAXNY-26DEC31-5.00 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXAAAGASMAXNY-26DEC31-5.00/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:09,332  lip_api  GET /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:10,347  lip_api  GET /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:12,357  lip_alloc  orderbook KXUSPPIYOY-26JUL15-T6.4 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSPPIYOY-26JUL15-T6.4/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:12,362  lip_api  GET /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:13,375  lip_api  GET /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:15,390  lip_alloc  orderbook KXSBUDGETRES-26JUN-26AUG01 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXSBUDGETRES-26JUN-26AUG01/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:15,395  lip_api  GET /trade-api/v2/markets/KXRT-STO-75/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:16,409  lip_api  GET /trade-api/v2/markets/KXRT-STO-75/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:18,424  lip_alloc  orderbook KXRT-STO-75 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXRT-STO-75/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:18,429  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:19,440  lip_api  GET /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:21,450  lip_alloc  orderbook KXCCLA-28JANALBD-97700000.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCCLA-28JANALBD-97700000.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:21,455  lip_api  GET /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:22,469  lip_api  GET /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:24,476  lip_alloc  orderbook KXCPICORE-26SEP-T0.6 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXCPICORE-26SEP-T0.6/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:24,480  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:25,496  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:27,507  lip_alloc  orderbook KXTEAMSINNCAABBWS-26-WVTEL failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-WVTEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:27,511  lip_api  GET /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:28,518  lip_api  GET /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:30,533  lip_alloc  orderbook KXHURRICANE-26DEC01CPACTOT-5 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXHURRICANE-26DEC01CPACTOT-5/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:30,536  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:31,561  lip_api  GET /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:33,573  lip_alloc  orderbook KXTEAMSINNCAABBWS-26-OLETEL failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXTEAMSINNCAABBWS-26-OLETEL/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:33,577  lip_api  GET /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:34,592  lip_api  GET /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:36,602  lip_alloc  orderbook KXU3-26OCT-T4.8 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXU3-26OCT-T4.8/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:36,606  lip_api  GET /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:37,621  lip_api  GET /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:39,631  lip_alloc  orderbook KXUSEDCARCPI-26JUL14-T180.0 failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets/KXUSEDCARCPI-26JUL14-T180.0/orderbook (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:40,650  lip_api  GET /trade-api/v2/incentive_programs failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/incentive_programs?status=active&type=liquidity&limit=1000 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:41,666  lip_api  GET /trade-api/v2/incentive_programs failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/incentive_programs?status=active&type=liquidity&limit=1000 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:43,681  lip_farmer  program refresh failed: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/incentive_programs?status=active&type=liquidity&limit=1000 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-06-11 17:14:43,697  lip_api  GET /trade-api/v2/markets failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets?tickers=KXENDORSEAOC-26NOV03-AELS%2CKXWCOCUSA-26JUN13B-TUR%2CKXWCPRICE-26JULWCFINAL-10500%2CKXRT-STO-75%2CKXPRIMARYPLACE-GOVMENOMD26-2-TJAC%2CKXCCLA-28JANALBD-97700000.0%2CKXHURRICANE-26DEC01CPACTOT-5%2CKXTEAMSINNCAABBWS-26-WVTEL%2CKXTEAMSINNCAABBWS-26-OLETEL%2CKXCCLA-28JANALBD-97200000.0%2CKXU3-26OCT-T4.8%2CKXAAAGASMAXNY-26DEC31-5.00%2CKXSBUDGETRES-26JUN-26AUG01%2CKXCPICORE-26SEP-T0.6%2CKXUSPPIYOY-26JUL15-T6.4%2CKXUSEDCARCPI-26JUL14-T180.0%2CKXPRIMARYMOV-MAYORLA2026-KBAS-P2%2CKXMAMDANIEO-26JUN13-T0%2CKXGOVSDNOMR-26-TDOE%2CKXVOTEPRIMARY-26JUN02SHIL-22%2CKXRANKLIST1SONG-26JUN27-CHO%2CKXTRUMPPHOTO-26JUN14%2CKXLIUSACASAAMOR-26-AUG31%2CKXVOTEPRIMARY-MAYORLA26SPRA-62%2CKXVOTEPRIMARY-MAYORLA26SPRA-62-5%2CKXSWIFTKELCEWEDDINGLOCATION-30-RHO%2CKXLIUSAELIMINATION-26JUN11-SOL%2CKXLIUSAELIMINATION-26JUN11-JEN%2CKXLIUSAELIMINATION-26JUN11-CAL%2CKXLIUSAELIMINATION-26JUN11-KAY%2CKXLIUSAELIMINATION-26JUN11-SIN%2CKXLIUSAELIMINATION-26JUN11-KCC%2CKXLIUSAELIMINATION-26JUN11-GAB%2CKXLIUSAELIMINATION-26JUN11-BRY%2CKXLIUSAELIMINATION-26JUN11-ZAC%2CKXLIUSAELIMINATION-26JUN11-COR%2CKXLIUSAELIMINATION-26JUN11-TRI%2CKXLIUSAELIMINATION-26JUN11-MEL%2CKXLIUSAELIMINATION-26JUN11-KEN%2CKXLIUSAELIMINATION-26JUN11-BEA%2CKXLIUSAELIMINATION-26JUN11-ANI%2CKXMURKOWSKIENDORSE-26NOV03-MPEL%2CKXGABBARDOUT-26-JUL01%2CKXLIUSAWINNERS-26-ZAC%2CKXLIUSAWINNERS-26-TRI%2CKXLIUSAWINNERS-26-MEL%2CKXLIUSAWINNERS-26-KEN%2CKXMOVIEDELAYODYSSEY-26DEC31%2CKXVOTEPRIMARY-GOVCAPRIMARY26XBEC-26%2CKXHOUSERACE-OR06-26-R&limit=50 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+2026-06-11 17:14:44,716  lip_api  GET /trade-api/v2/markets failed (HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets?tickers=KXENDORSEAOC-26NOV03-AELS%2CKXWCOCUSA-26JUN13B-TUR%2CKXWCPRICE-26JULWCFINAL-10500%2CKXRT-STO-75%2CKXPRIMARYPLACE-GOVMENOMD26-2-TJAC%2CKXCCLA-28JANALBD-97700000.0%2CKXHURRICANE-26DEC01CPACTOT-5%2CKXTEAMSINNCAABBWS-26-WVTEL%2CKXTEAMSINNCAABBWS-26-OLETEL%2CKXCCLA-28JANALBD-97200000.0%2CKXU3-26OCT-T4.8%2CKXAAAGASMAXNY-26DEC31-5.00%2CKXSBUDGETRES-26JUN-26AUG01%2CKXCPICORE-26SEP-T0.6%2CKXUSPPIYOY-26JUL15-T6.4%2CKXUSEDCARCPI-26JUL14-T180.0%2CKXPRIMARYMOV-MAYORLA2026-KBAS-P2%2CKXMAMDANIEO-26JUN13-T0%2CKXGOVSDNOMR-26-TDOE%2CKXVOTEPRIMARY-26JUN02SHIL-22%2CKXRANKLIST1SONG-26JUN27-CHO%2CKXTRUMPPHOTO-26JUN14%2CKXLIUSACASAAMOR-26-AUG31%2CKXVOTEPRIMARY-MAYORLA26SPRA-62%2CKXVOTEPRIMARY-MAYORLA26SPRA-62-5%2CKXSWIFTKELCEWEDDINGLOCATION-30-RHO%2CKXLIUSAELIMINATION-26JUN11-SOL%2CKXLIUSAELIMINATION-26JUN11-JEN%2CKXLIUSAELIMINATION-26JUN11-CAL%2CKXLIUSAELIMINATION-26JUN11-KAY%2CKXLIUSAELIMINATION-26JUN11-SIN%2CKXLIUSAELIMINATION-26JUN11-KCC%2CKXLIUSAELIMINATION-26JUN11-GAB%2CKXLIUSAELIMINATION-26JUN11-BRY%2CKXLIUSAELIMINATION-26JUN11-ZAC%2CKXLIUSAELIMINATION-26JUN11-COR%2CKXLIUSAELIMINATION-26JUN11-TRI%2CKXLIUSAELIMINATION-26JUN11-MEL%2CKXLIUSAELIMINATION-26JUN11-KEN%2CKXLIUSAELIMINATION-26JUN11-BEA%2CKXLIUSAELIMINATION-26JUN11-ANI%2CKXMURKOWSKIENDORSE-26NOV03-MPEL%2CKXGABBARDOUT-26-JUL01%2CKXLIUSAWINNERS-26-ZAC%2CKXLIUSAWINNERS-26-TRI%2CKXLIUSAWINNERS-26-MEL%2CKXLIUSAWINNERS-26-KEN%2CKXMOVIEDELAYODYSSEY-26DEC31%2CKXVOTEPRIMARY-GOVCAPRIMARY26XBEC-26%2CKXHOUSERACE-OR06-26-R&limit=50 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))), retrying
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/util/connection.py", line 60, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socket.py", line 962, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connection.py", line 211, in _new_conn
+    raise NameResolutionError(self.host, self, e) from e
+urllib3.exceptions.NameResolutionError: HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets?tickers=KXENDORSEAOC-26NOV03-AELS%2CKXWCOCUSA-26JUN13B-TUR%2CKXWCPRICE-26JULWCFINAL-10500%2CKXRT-STO-75%2CKXPRIMARYPLACE-GOVMENOMD26-2-TJAC%2CKXCCLA-28JANALBD-97700000.0%2CKXHURRICANE-26DEC01CPACTOT-5%2CKXTEAMSINNCAABBWS-26-WVTEL%2CKXTEAMSINNCAABBWS-26-OLETEL%2CKXCCLA-28JANALBD-97200000.0%2CKXU3-26OCT-T4.8%2CKXAAAGASMAXNY-26DEC31-5.00%2CKXSBUDGETRES-26JUN-26AUG01%2CKXCPICORE-26SEP-T0.6%2CKXUSPPIYOY-26JUL15-T6.4%2CKXUSEDCARCPI-26JUL14-T180.0%2CKXPRIMARYMOV-MAYORLA2026-KBAS-P2%2CKXMAMDANIEO-26JUN13-T0%2CKXGOVSDNOMR-26-TDOE%2CKXVOTEPRIMARY-26JUN02SHIL-22%2CKXRANKLIST1SONG-26JUN27-CHO%2CKXTRUMPPHOTO-26JUN14%2CKXLIUSACASAAMOR-26-AUG31%2CKXVOTEPRIMARY-MAYORLA26SPRA-62%2CKXVOTEPRIMARY-MAYORLA26SPRA-62-5%2CKXSWIFTKELCEWEDDINGLOCATION-30-RHO%2CKXLIUSAELIMINATION-26JUN11-SOL%2CKXLIUSAELIMINATION-26JUN11-JEN%2CKXLIUSAELIMINATION-26JUN11-CAL%2CKXLIUSAELIMINATION-26JUN11-KAY%2CKXLIUSAELIMINATION-26JUN11-SIN%2CKXLIUSAELIMINATION-26JUN11-KCC%2CKXLIUSAELIMINATION-26JUN11-GAB%2CKXLIUSAELIMINATION-26JUN11-BRY%2CKXLIUSAELIMINATION-26JUN11-ZAC%2CKXLIUSAELIMINATION-26JUN11-COR%2CKXLIUSAELIMINATION-26JUN11-TRI%2CKXLIUSAELIMINATION-26JUN11-MEL%2CKXLIUSAELIMINATION-26JUN11-KEN%2CKXLIUSAELIMINATION-26JUN11-BEA%2CKXLIUSAELIMINATION-26JUN11-ANI%2CKXMURKOWSKIENDORSE-26NOV03-MPEL%2CKXGABBARDOUT-26-JUL01%2CKXLIUSAWINNERS-26-ZAC%2CKXLIUSAWINNERS-26-TRI%2CKXLIUSAWINNERS-26-MEL%2CKXLIUSAWINNERS-26-KEN%2CKXMOVIEDELAYODYSSEY-26DEC31%2CKXVOTEPRIMARY-GOVCAPRIMARY26XBEC-26%2CKXHOUSERACE-OR06-26-R&limit=50 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_farmer.py", line 337, in <module>
+    Farmer().run(once="--once" in sys.argv)
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_farmer.py", line 324, in run
+    self.reallocate()
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_farmer.py", line 150, in reallocate
+    chosen = lip_allocator.select_portfolio(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_allocator.py", line 167, in select_portfolio
+    markets = lip_api.get_markets_by_tickers([p.ticker for p in scan])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_api.py", line 124, in get_markets_by_tickers
+    data = _get("/trade-api/v2/markets",
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/leolee/kalshi-delta-hedging/live/lip_api.py", line 84, in _get
+    resp = _session.get(BASE_URL + path, params=params, headers=headers, timeout=15)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/requests/sessions.py", line 605, in get
+    return self.request("GET", url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='api.elections.kalshi.com', port=443): Max retries exceeded with url: /trade-api/v2/markets?tickers=KXENDORSEAOC-26NOV03-AELS%2CKXWCOCUSA-26JUN13B-TUR%2CKXWCPRICE-26JULWCFINAL-10500%2CKXRT-STO-75%2CKXPRIMARYPLACE-GOVMENOMD26-2-TJAC%2CKXCCLA-28JANALBD-97700000.0%2CKXHURRICANE-26DEC01CPACTOT-5%2CKXTEAMSINNCAABBWS-26-WVTEL%2CKXTEAMSINNCAABBWS-26-OLETEL%2CKXCCLA-28JANALBD-97200000.0%2CKXU3-26OCT-T4.8%2CKXAAAGASMAXNY-26DEC31-5.00%2CKXSBUDGETRES-26JUN-26AUG01%2CKXCPICORE-26SEP-T0.6%2CKXUSPPIYOY-26JUL15-T6.4%2CKXUSEDCARCPI-26JUL14-T180.0%2CKXPRIMARYMOV-MAYORLA2026-KBAS-P2%2CKXMAMDANIEO-26JUN13-T0%2CKXGOVSDNOMR-26-TDOE%2CKXVOTEPRIMARY-26JUN02SHIL-22%2CKXRANKLIST1SONG-26JUN27-CHO%2CKXTRUMPPHOTO-26JUN14%2CKXLIUSACASAAMOR-26-AUG31%2CKXVOTEPRIMARY-MAYORLA26SPRA-62%2CKXVOTEPRIMARY-MAYORLA26SPRA-62-5%2CKXSWIFTKELCEWEDDINGLOCATION-30-RHO%2CKXLIUSAELIMINATION-26JUN11-SOL%2CKXLIUSAELIMINATION-26JUN11-JEN%2CKXLIUSAELIMINATION-26JUN11-CAL%2CKXLIUSAELIMINATION-26JUN11-KAY%2CKXLIUSAELIMINATION-26JUN11-SIN%2CKXLIUSAELIMINATION-26JUN11-KCC%2CKXLIUSAELIMINATION-26JUN11-GAB%2CKXLIUSAELIMINATION-26JUN11-BRY%2CKXLIUSAELIMINATION-26JUN11-ZAC%2CKXLIUSAELIMINATION-26JUN11-COR%2CKXLIUSAELIMINATION-26JUN11-TRI%2CKXLIUSAELIMINATION-26JUN11-MEL%2CKXLIUSAELIMINATION-26JUN11-KEN%2CKXLIUSAELIMINATION-26JUN11-BEA%2CKXLIUSAELIMINATION-26JUN11-ANI%2CKXMURKOWSKIENDORSE-26NOV03-MPEL%2CKXGABBARDOUT-26-JUL01%2CKXLIUSAWINNERS-26-ZAC%2CKXLIUSAWINNERS-26-TRI%2CKXLIUSAWINNERS-26-MEL%2CKXLIUSAWINNERS-26-KEN%2CKXMOVIEDELAYODYSSEY-26DEC31%2CKXVOTEPRIMARY-GOVCAPRIMARY26XBEC-26%2CKXHOUSERACE-OR06-26-R&limit=50 (Caused by NameResolutionError("HTTPSConnection(host='api.elections.kalshi.com', port=443): Failed to resolve 'api.elections.kalshi.com' ([Errno 8] nodename nor servname provided, or not known)"))

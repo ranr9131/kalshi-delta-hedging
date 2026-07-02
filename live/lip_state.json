@@ -1,0 +1,244 @@
+{
+ "fill_cursor_ts": 1781124522,
+ "cooldowns": {
+  "KXLIUKELIMINATION-26JUN10-LOL": 1781124679.563781,
+  "KXLIUKELIMINATION-26JUN10-MIC": 1781124760.673583,
+  "KXLIUKELIMINATION-26JUN10-JAS": 1781124818.275844,
+  "KXLIUKELIMINATION-26JUN10-ELL": 1781125760.71372,
+  "KXLIUKELIMINATION-26JUN10-YAS": 1781125801.163626
+ },
+ "positions": {
+  "KXLIUKELIMINATION-26JUN10-LOL": {
+   "yes": 999.61,
+   "no": 0,
+   "cost": 29.9883
+  },
+  "KXLIUKELIMINATION-26JUN10-MIC": {
+   "yes": 1000.0,
+   "no": 0,
+   "cost": 30.0
+  },
+  "KXLIUKELIMINATION-26JUN10-JAS": {
+   "yes": 999.85,
+   "no": 0,
+   "cost": 29.995500000000003
+  },
+  "KXLIUKELIMINATION-26JUN10-ELL": {
+   "yes": 1000.0,
+   "no": 0,
+   "cost": 30.0
+  },
+  "KXLIUKELIMINATION-26JUN10-YAS": {
+   "yes": 1000.0,
+   "no": 0,
+   "cost": 30.0
+  }
+ },
+ "accrual_total": 191.0175283819048,
+ "last_accrual_ts": 1781212338.602221,
+ "held": {
+  "KXENDORSEAOC-26NOV03-AELS": {
+   "share": 0.2796,
+   "est_per_day": 7.49,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 26.78,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXWCOCUSA-26JUN13B-TUR": {
+   "share": 0.2949,
+   "est_per_day": 6.64,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 22.51,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-13T14:00:00+00:00"
+  },
+  "KXCCLA-28JANALBD-97200000.0": {
+   "share": 0.3415,
+   "est_per_day": 6.5,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 19.02,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXWCPRICE-26JULWCFINAL-10500": {
+   "share": 0.2828,
+   "est_per_day": 6.32,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 22.34,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXPRIMARYPLACE-GOVMENOMD26-2-TJAC": {
+   "share": 0.1056,
+   "est_per_day": 5.96,
+   "yes_price": 1,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 56.5,
+   "capital": 40.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXAAAGASMAXNY-26DEC31-5.00": {
+   "share": 0.4439,
+   "est_per_day": 5.69,
+   "yes_price": 1,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 12.82,
+   "capital": 40.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXUSPPIYOY-26JUL15-T6.4": {
+   "share": 0.3069,
+   "est_per_day": 5.17,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 16.86,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXSBUDGETRES-26JUN-26AUG01": {
+   "share": 0.0885,
+   "est_per_day": 4.82,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 54.43,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXRT-STO-75": {
+   "share": 0.4287,
+   "est_per_day": 5.5,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 12.82,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXCCLA-28JANALBD-97700000.0": {
+   "share": 0.1722,
+   "est_per_day": 3.27,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 19.02,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXCPICORE-26SEP-T0.6": {
+   "share": 0.2016,
+   "est_per_day": 3.63,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 18.01,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXTEAMSINNCAABBWS-26-WVTEL": {
+   "share": 0.4789,
+   "est_per_day": 2.51,
+   "yes_price": 6,
+   "no_price": 6,
+   "size": 500,
+   "reward_per_day": 5.24,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-20T03:59:00+00:00"
+  },
+  "KXHURRICANE-26DEC01CPACTOT-5": {
+   "share": 0.1956,
+   "est_per_day": 2.51,
+   "yes_price": 2,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 12.82,
+   "capital": 50.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXTEAMSINNCAABBWS-26-OLETEL": {
+   "share": 0.3882,
+   "est_per_day": 2.04,
+   "yes_price": 6,
+   "no_price": 6,
+   "size": 500,
+   "reward_per_day": 5.24,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-20T03:59:00+00:00"
+  },
+  "KXU3-26OCT-T4.8": {
+   "share": 0.1173,
+   "est_per_day": 2.15,
+   "yes_price": 2,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 18.29,
+   "capital": 50.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  },
+  "KXUSEDCARCPI-26JUL14-T180.0": {
+   "share": 0.0816,
+   "est_per_day": 2.01,
+   "yes_price": 3,
+   "no_price": 3,
+   "size": 1000,
+   "reward_per_day": 24.59,
+   "capital": 60.0,
+   "worst_loss": 30.0,
+   "end_date": "2026-06-14T03:59:59+00:00"
+  }
+ },
+ "paper": true,
+ "updated": "2026-06-11T21:13:33+00:00",
+ "placed_order_ids": [
+  "3675f13e-7231-41a8-9e23-da85342495b0",
+  "7568586d-60b2-4f34-adc1-9df56dfbe496",
+  "f7316a1d-1568-4c71-8cc6-026f261dd994",
+  "ac60ad4b-9b13-482a-9831-53e6a65dd0ff",
+  "7929e138-d929-4e75-b696-6b47d04e852d",
+  "741d2e38-faaf-495b-a1a5-8d0012544b87",
+  "d33c5c93-8588-42b6-a8ee-72e7578bdac4",
+  "2f9f8a33-3079-4e84-84f8-fed35580cf0d",
+  "1e87c940-78e8-47ba-b08f-61b4eb50dd62",
+  "bbf8ad02-71a5-4138-b4e3-b62d5482d707",
+  "eef6d09f-4923-4a5f-86ce-d41a96e4d460",
+  "0672c852-92c8-4716-bb8d-1895ba9b9851",
+  "b151ef49-b90c-4904-9a6a-d5e959a550e9",
+  "2ba0e23c-e2b4-4b18-955a-7ca4fcb8b348",
+  "db4c100a-cd65-48dc-afd3-016a9ecdd97d",
+  "692c62ce-816d-4703-a503-c5864f7bab1d"
+ ],
+ "seen_fill_ids": [
+  "9e04d137-0879-62d2-11ca-240c792e775d",
+  "a63e67ee-38ba-7bdc-1ad5-c5a661963f93",
+  "234b44cf-dad6-70d1-67e0-4e78821210a3",
+  "ebde69e8-e3b5-765b-ca12-de19a969ca98",
+  "4f5995c1-9c68-642a-a61f-2a21bc500a9b"
+ ]
+}

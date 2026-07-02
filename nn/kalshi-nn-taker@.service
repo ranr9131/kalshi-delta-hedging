@@ -1,0 +1,20 @@
+[Unit]
+Description=Kalshi NN TAKER forward paper shadow (%i, validated taker, real touch fills, no capital)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/kalshi-delta-hedging
+Environment=BASE_STAKE=10
+Environment=MIN_EDGE_C=5
+Environment=SIZING=flat
+ExecStart=/usr/bin/python3.11 -u /home/ec2-user/kalshi-delta-hedging/nn/taker_shadow.py --asset %i --interval 30
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/ec2-user/kalshi-delta-hedging/nn/taker_shadow_runtime_%i.log
+StandardError=append:/home/ec2-user/kalshi-delta-hedging/nn/taker_shadow_runtime_%i.log
+
+[Install]
+WantedBy=multi-user.target
