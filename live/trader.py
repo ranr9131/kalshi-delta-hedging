@@ -58,6 +58,37 @@ BASE_STAKE = float(env.get("BASE_STAKE", "100.0"))
 MODE       = env.get("MODE", "dh-target").lower()   # t+5 | dh-target | dh-additive
 MIN_BET    = float(env.get("MIN_BET", "5.0"))
 
+# ── Sizing engine ─────────────────────────────────────────────────────────────
+# SIZING=sigmoid (default): target = BASE_STAKE * f_btc * g_misprice * td_mult
+# SIZING=s6kelly: calibrated logistic P(win) + fractional Kelly. Backtested
+# OOS at +79% ROI vs sigmoid's +55% at equal Sharpe (see s6_calibrated.py).
+# Model coefficients come from s6_calibration.json (fit on the 90d BTC
+# dataset) — BTC-only; do not enable for other assets.
+SIZING        = env.get("SIZING", "sigmoid").strip().lower()
+S6_BANKROLL   = float(env.get("S6_BANKROLL", "1000.0"))
+S6_KELLY_FRAC = float(env.get("S6_KELLY_FRAC", "0.25"))
+S6_MAX_STAKE  = float(env.get("S6_MAX_STAKE", "150.0"))
+S6_EDGE_MIN   = float(env.get("S6_EDGE_MIN", "0.0"))
+
+_S6_MODEL = None
+if SIZING == "s6kelly":
+    import json as _json
+    _s6_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "s6_calibration.json")
+    with open(_s6_path) as _f:
+        _S6_MODEL = _json.load(_f)
+
+
+def s6_p_win(fair: float, abs_pct: float, minute_idx: int) -> float:
+    """Calibrated P(continuation side wins) from the fitted logistic.
+    Predictors must match the fit: logit(fair_2d), abs_pct, minute/14."""
+    c = _S6_MODEL["coef"]
+    f = min(1 - 1e-4, max(1e-4, fair))
+    z = (_S6_MODEL["intercept"]
+         + c[0] * math.log(f / (1 - f))
+         + c[1] * abs_pct
+         + c[2] * (minute_idx / 14.0))
+    return 1.0 / (1.0 + math.exp(-z))
+
 # Hard cap on total dollars wagered within a single 15-min window. The DH loop
 # truncates each bet to fit; once the cap is reached no further bets are placed.
 # Worst-case window loss ≈ this number. Set to 0 to disable.
@@ -105,9 +136,14 @@ if not raw_pem and not PAPER_MODE:
 PRIVATE_KEY = kalshi_auth.load_private_key(raw_pem) if raw_pem else None
 
 # ── Log paths ─────────────────────────────────────────────────────────────────
+# LOG_TAG suffixes the log files (trade_log.<tag>.csv) so parallel paper
+# instances don't clobber each other — matches the existing naming convention
+# (trade_log.paper-s2.csv etc.).
 _dir = os.path.dirname(os.path.abspath(__file__))
-TRADE_LOG_PATH  = os.path.join(_dir, "trade_log.csv")
-WINDOW_LOG_PATH = os.path.join(_dir, "window_log.csv")
+LOG_TAG = env.get("LOG_TAG", "").strip()
+_log_sfx = f".{LOG_TAG}" if LOG_TAG else ""
+TRADE_LOG_PATH  = os.path.join(_dir, f"trade_log{_log_sfx}.csv")
+WINDOW_LOG_PATH = os.path.join(_dir, f"window_log{_log_sfx}.csv")
 
 # One row per individual bet (all modes)
 TRADE_LOG_FIELDS = [
@@ -570,62 +606,88 @@ def get_btc_with_retry() -> float | None:
     return None
 
 
-def place_order_with_retry(ticker, side, market, stake) -> tuple[str | None, str | None, float]:
+def place_order_with_retry(ticker, side, market, stake,
+                           max_cost: float | None = None) -> tuple[str | None, str | None, float]:
     """
-    Place an order. If it rests (market moved between fetch and submit),
-    cancel it, re-fetch the market, and retry once at the updated price.
+    Execution policy (2026-07-02): IOC chase ladder with an edge-based price cap.
 
-    Returns (order_id, error, actual_stake):
-      actual_stake is the dollar amount that ACTUALLY filled. For a clean
-      execution this equals `stake`. For a "rested → cancelled" path where
-      Kalshi partially filled before the cancel landed, this is the partial
-      fill amount (may be less than `stake`). Used to keep exposure tracking
-      consistent with reality so the per-window cap holds.
+        IOC at base buffer -> partial accepted -> IOC chase remaining (+2c, +4c)
+        -> stop when the limit price would erase the edge (max_cost)
 
-    NOTE: The IOC + chase variant of this function (using expiration_ts=now+3)
-    caused stacked-resting-order bug on 2026-05-20 where Kalshi treated the
-    orders as 3-second resting limits rather than true IOC. Each retry placed
-    additional orders before the original ones expired/cancelled, leading to
-    duplicate fills. Reverted to original place→cancel-if-resting→retry-once.
+    - Uses V2-native time_in_force=immediate_or_cancel: fills whatever is
+      available at the limit instantly and cancels the remainder ATOMICALLY at
+      the matching engine. (The 2026-05-20 stacked-order bug came from the old
+      V1 expiration_ts=now+3 hack, where "IOC" orders actually rested for 3s and
+      chase retries stacked on top of them. True IOC cannot stack: each rung
+      only submits after the previous rung's response — with its fill count —
+      has returned.)
+    - Partial fills count as success: we track filled dollars and only chase
+      the remaining stake.
+    - max_cost: max acceptable cost per contract for OUR side (edge cap,
+      typically p_est - fee - min_edge). Rungs whose limit would exceed it are
+      not submitted — maximize FILLED GOOD orders, not raw submissions.
+
+    Returns (order_id, error, actual_stake): actual_stake = dollars actually
+    filled (0.0 if nothing filled), keeping exposure/caps consistent with
+    reality.
     """
+    CHASE_LADDER = (0, 2, 4)   # extra cents over FILL_BUFFER_CENTS per rung
     current_market = market
-    for attempt in range(2):
+    filled_total = 0.0
+    last_oid = None
+
+    for i, extra in enumerate(CHASE_LADDER):
+        remaining = stake - filled_total
+        if remaining < 0.25:   # nothing meaningful left to chase
+            break
+
+        # Refresh the quote between rungs — the whole point is repricing.
+        if i > 0:
+            try:
+                current_market = kalshi_trade.get_open_market() or current_market
+            except Exception:
+                pass
+
+        # The limit this rung would submit (mirrors place_order's math).
+        buf_c = kalshi_trade.FILL_BUFFER_CENTS + extra
+        if side == "yes":
+            limit_cost = round(float(current_market["yes_ask_dollars"]) * 100 + buf_c) / 100.0
+        else:
+            limit_cost = 1.0 - round(float(current_market["yes_bid_dollars"]) * 100 - buf_c) / 100.0
+
+        if max_cost is not None and limit_cost > max_cost:
+            log.info(f"  chase stop: rung +{extra}c limit {limit_cost:.2f} > edge cap {max_cost:.2f}")
+            break
+        if limit_cost >= 0.99:
+            break
+        if remaining < limit_cost:
+            # Residue can't buy a whole contract — place_order would round UP
+            # to 1 and overshoot the stake. Treat as fully filled.
+            break
+
         try:
-            resp     = kalshi_trade.place_order(PRIVATE_KEY, API_KEY_ID, ticker, side, current_market, stake)
-            order    = resp.get("order", {})
-            order_id = order.get("order_id", "unknown")
-            status   = order.get("status", "")
-
-            if status == "resting":
-                log.warning(f"  Order {order_id} is resting (market moved). Cancelling and retrying...")
-                kalshi_trade.cancel_order(PRIVATE_KEY, API_KEY_ID, order_id)
-
-                # Check for partial fills that may have landed on Kalshi before
-                # the cancel. Without this the order looks fully cancelled and
-                # exposure tracking misses contracts that did execute.
-                filled = kalshi_trade.get_order_filled_stake(PRIVATE_KEY, API_KEY_ID, order_id)
-                if filled >= 0.01:
-                    log.warning(
-                        f"  Order {order_id} partially filled ${filled:.2f} before cancel "
-                        f"— counting toward exposure"
-                    )
-                    return order_id, None, filled
-
-                if attempt == 0:
-                    try:
-                        current_market = kalshi_trade.get_open_market() or current_market
-                    except Exception:
-                        pass
-                    continue
-                # second attempt also rested with no fills
-                return None, "both attempts rested and were cancelled", 0.0
-
-            return order_id, None, stake
+            resp  = kalshi_trade.place_order(PRIVATE_KEY, API_KEY_ID, ticker, side,
+                                             current_market, remaining,
+                                             extra_buffer_cents=extra, ioc=True)
+            order = resp.get("order", {})
+            last_oid = order.get("order_id", last_oid)
+            fill_count = float(order.get("fill_count") or 0)
+            avg = order.get("average_fill_price")
+            if fill_count > 0 and avg is not None:
+                avg = float(avg)
+                per_contract = avg if side == "yes" else (1.0 - avg)
+                filled_total += fill_count * per_contract
+                log.info(f"  IOC rung +{extra}c: filled {fill_count:g} @ {per_contract:.2f} "
+                         f"(cum ${filled_total:.2f} of ${stake:.2f})")
+            else:
+                log.info(f"  IOC rung +{extra}c: no fill (book moved past {limit_cost:.2f})")
         except Exception as e:
-            log.error(f"Order attempt {attempt+1} failed: {e}")
-            if attempt == 0:
-                time.sleep(1)
-    return None, "order rested or failed after retry", 0.0
+            log.error(f"  IOC rung +{extra}c failed: {e}")
+            time.sleep(0.5)
+
+    if filled_total >= 0.01:
+        return last_oid, None, filled_total
+    return None, "no fill after IOC chase ladder", 0.0
 
 
 def wait_for_close(close_time_str: str) -> None:
@@ -894,11 +956,36 @@ def run_dh_loop(
             target_no  = BASE_STAKE * f_btc * g_misprice * td_mult
             target_yes = 0.0
 
+        if SIZING == "s6kelly":
+            # Calibrated-probability + fractional-Kelly sizing (overrides the
+            # sigmoid targets above; f_btc/g_misprice still logged for compare).
+            # cost = what the continuation contract actually costs incl. buffer.
+            cost  = (yes_ask + buf) if direction_up else ((1.0 - yes_bid) + buf)
+            p_win = s6_p_win(fair, abs_pct_move, minute_idx)
+            fee   = 0.07 * cost * (1.0 - cost)          # real Kalshi fee/contract (confirmed vs live fill)
+            s6_edge = p_win - cost - fee                # edge NET of fee
+            if s6_edge > S6_EDGE_MIN and cost < 0.99:
+                kelly  = s6_edge / (1.0 - cost)          # full-Kelly fraction
+                target = min(S6_MAX_STAKE, S6_KELLY_FRAC * kelly * S6_BANKROLL)
+            else:
+                target = 0.0
+            target_yes = target if direction_up else 0.0
+            target_no  = 0.0 if direction_up else target
+            log.info(f"  s6kelly: p_win={p_win:.3f} cost={cost:.3f} fee={fee:.3f} edge={s6_edge:+.3f} target=${target:.2f}")
+
+        # Edge-based execution cap for the IOC chase ladder: never pay more per
+        # contract than the price at which the net edge (after fee) would drop
+        # below the minimum. "Maximize filled good orders, not raw submissions."
+        _p_est = p_win if SIZING == "s6kelly" else fair
+        _min_edge_req = S6_EDGE_MIN if SIZING == "s6kelly" else (MIN_EDGE_CENTS / 100.0)
+        max_cost_cap = _p_est - 0.07 * _p_est * (1.0 - _p_est) - _min_edge_req
+
         # Edge filter: skip the bet if expected post-buffer edge is below
         # threshold. Real fees (~1.75c/contract on 50c markets) make sub-1c
         # edges negative-EV. Sim shows +5-8pp ROI from this filter.
+        # (s6kelly has its own calibrated edge gate above — skip this one.)
         edge_cents = mispricing * 100
-        if edge_cents < MIN_EDGE_CENTS:
+        if edge_cents < MIN_EDGE_CENTS and SIZING != "s6kelly":
             target_yes = 0.0
             target_no  = 0.0
 
@@ -1008,7 +1095,7 @@ def run_dh_loop(
                     order_id, order_result = "paper", "paper"
                     log.info("     [PAPER] no order submitted")
                 else:
-                    order_id, err, actual_stake = place_order_with_retry(ticker, "yes", market, bet_yes)
+                    order_id, err, actual_stake = place_order_with_retry(ticker, "yes", market, bet_yes, max_cost=max_cost_cap)
                     order_result  = "ok" if order_id else f"error: {err}"
                     if order_id:
                         log.info(f"     YES order placed: {order_id}  (filled ${actual_stake:.2f})")
@@ -1049,7 +1136,7 @@ def run_dh_loop(
                     order_id, order_result = "paper", "paper"
                     log.info("     [PAPER] no order submitted")
                 else:
-                    order_id, err, actual_stake = place_order_with_retry(ticker, "no", market, bet_no)
+                    order_id, err, actual_stake = place_order_with_retry(ticker, "no", market, bet_no, max_cost=max_cost_cap)
                     order_result  = "ok" if order_id else f"error: {err}"
                     if order_id:
                         log.info(f"     NO order placed: {order_id}  (filled ${actual_stake:.2f})")
@@ -1262,7 +1349,7 @@ def run_window():
             order_id, order_result = "paper", "paper"
             log.info("[PAPER] Order not placed.")
         else:
-            order_id, err = place_order_with_retry(ticker, side, market, stake)
+            order_id, err, _actual = place_order_with_retry(ticker, side, market, stake)
             order_result  = "ok" if order_id else f"error: {err}"
             if order_id:
                 log.info(f"Order placed: {order_id}")

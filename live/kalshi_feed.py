@@ -30,6 +30,20 @@ _yes_bid: float | None = None
 _yes_ask: float | None = None
 _last_update:  float   = 0.0
 
+# Full order-book depth (from the orderbook_delta channel).
+# Kalshi expresses the book as resting YES bids and resting NO bids. Since the
+# V2 migration (2026) prices arrive as fixed-point dollar STRINGS (sub-penny,
+# e.g. "0.0010") and sizes as fixed-point contract strings (fractional, e.g.
+# "75.00"). We key levels by the exact price string (lossless) and store sizes
+# as floats. A resting NO order at price q is an offer to SELL yes at 1-q, i.e.
+# it is the ask side for yes. So:
+#   buying YES  -> consume _no_levels  (yes_ask = 1 - no_price)
+#   buying NO   -> consume _yes_levels (no_ask  = 1 - yes_price)
+_yes_levels:   dict[str, float] = {}   # yes price_dollars str -> size (contracts)
+_no_levels:    dict[str, float] = {}   # no  price_dollars str -> size (contracts)
+_book_ticker:  str | None = None       # ticker the current book belongs to
+_book_update:  float   = 0.0
+
 _ticker:       str | None = None   # currently subscribed market ticker
 _ws:           websocket.WebSocketApp | None = None
 
@@ -59,15 +73,70 @@ def get_age() -> float:
         return time.time() - _last_update if _last_update else float("inf")
 
 
+def get_book() -> dict:
+    """Snapshot of the full depth as sorted ask ladders, in dollars.
+
+    Returns {ticker, age, yes_asks, no_asks} where each *_asks is a list of
+    (price_dollars, size) sorted best (cheapest) first — i.e. the price you'd
+    pay to BUY that side, walking the book. Empty lists if no book yet.
+    """
+    with _lock:
+        yes_asks = sorted((round(1.0 - float(q), 4), s) for q, s in _no_levels.items() if s > 0)
+        no_asks  = sorted((round(1.0 - float(p), 4), s) for p, s in _yes_levels.items() if s > 0)
+        return {
+            "ticker": _book_ticker,
+            "age": (time.time() - _book_update) if _book_update else float("inf"),
+            "yes_asks": yes_asks,
+            "no_asks": no_asks,
+        }
+
+
+def expected_fill(side: str, contracts: float) -> dict:
+    """VWAP price (dollars) to BUY `contracts` of `side` by walking the real book.
+
+    Returns {vwap, filled, exhausted, top} where:
+      vwap      = size-weighted avg fill price in dollars (None if no book)
+      filled    = contracts the book can actually fill (< contracts if thin)
+      exhausted = True if the book ran out before `contracts` was reached
+      top       = best (touch) price in dollars, or None
+    """
+    book = get_book()
+    ladder = book["yes_asks"] if side == "yes" else book["no_asks"]
+    if not ladder:
+        return {"vwap": None, "filled": 0.0, "exhausted": True, "top": None}
+    remaining = float(contracts)
+    cost = 0.0
+    got = 0.0
+    for price, size in ladder:
+        take = min(remaining, float(size))
+        cost += take * price
+        got += take
+        remaining -= take
+        if remaining <= 1e-9:
+            break
+    return {
+        "vwap": (cost / got) if got > 0 else None,
+        "filled": got,
+        "exhausted": remaining > 1e-9,
+        "top": ladder[0][0],
+    }
+
+
 def set_ticker(ticker: str):
     """
     Switch the WebSocket subscription to a new market ticker.
     Call this at the start of each 15-minute window.
     """
-    global _ticker
+    global _ticker, _yes_levels, _no_levels, _book_ticker, _book_update
     with _lock:
         changed = ticker != _ticker
         _ticker = ticker
+        if changed:
+            # Drop the previous market's book; the new snapshot will repopulate.
+            _yes_levels = {}
+            _no_levels = {}
+            _book_ticker = None
+            _book_update = 0.0
     if changed:
         _send_subscribe(ticker)
         log.info(f"[kalshi_feed] Subscribed to {ticker}")
@@ -86,7 +155,7 @@ def _send_subscribe(ticker: str):
             "id":     _msg_seq,
             "cmd":    "subscribe",
             "params": {
-                "channels":       ["ticker"],
+                "channels":       ["ticker", "orderbook_delta"],
                 "market_tickers": [ticker],
             },
         }))
@@ -107,6 +176,7 @@ def _on_open(ws):
 
 def _on_message(ws, raw):
     global _yes_bid, _yes_ask, _last_update
+    global _yes_levels, _no_levels, _book_ticker, _book_update
     try:
         msg      = json.loads(raw)
         msg_type = msg.get("type")
@@ -120,6 +190,34 @@ def _on_message(ws, raw):
                     _yes_bid     = float(bid)
                     _yes_ask     = float(ask)
                     _last_update = time.time()
+
+        elif msg_type == "orderbook_snapshot":
+            # Full replacement of the book. V2 shape: yes_dollars_fp /
+            # no_dollars_fp = [[price_dollars_str, size_fp_str], ...].
+            with _lock:
+                _book_ticker = data.get("market_ticker")
+                _yes_levels = {str(p): float(s)
+                               for p, s in (data.get("yes_dollars_fp") or [])}
+                _no_levels  = {str(p): float(s)
+                               for p, s in (data.get("no_dollars_fp") or [])}
+                _book_update = time.time()
+
+        elif msg_type == "orderbook_delta":
+            # Incremental change. V2 shape: price_dollars (str), delta_fp
+            # (signed str), side. Zero/negative size removes the level.
+            with _lock:
+                side  = data.get("side")
+                price = data.get("price_dollars")
+                delta = data.get("delta_fp")
+                if side in ("yes", "no") and price is not None and delta is not None:
+                    levels = _yes_levels if side == "yes" else _no_levels
+                    key = str(price)
+                    new = levels.get(key, 0.0) + float(delta)
+                    if new > 1e-9:
+                        levels[key] = new
+                    else:
+                        levels.pop(key, None)
+                    _book_update = time.time()
 
         elif msg_type == "error":
             log.warning(f"[kalshi_feed] server error: {data}")

@@ -1,0 +1,19 @@
+{
+  "model": "logistic",
+  "predictors": [
+    "logit_fair_2d",
+    "abs_pct",
+    "minute_frac14"
+  ],
+  "coef": [
+    0.6711139173242584,
+    3.1920913649488916,
+    0.31760129658585345
+  ],
+  "intercept": -0.0835143190279755,
+  "n_samples": 79177,
+  "base_rate": 0.7217752630183008,
+  "fitted_at": "2026-07-02T17:04:25.060737+00:00",
+  "data_window_days": 90,
+  "validation": "walk-forward OOS +79% ROI vs S2 +55%, calibrated within ~0.03 (see s6_calibrated.py)"
+}
