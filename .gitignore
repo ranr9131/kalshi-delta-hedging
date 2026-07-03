@@ -1,49 +1,62 @@
-# Secrets
+# ── Secrets — never commit credentials ───────────────────────────────────────
+.env
+.env.*
+!.env.example
 live/.env
 live/.env.*
 !live/.env.example
+*.pem
+*.key
 
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 .Python
 *.egg-info/
 dist/
 build/
 .venv/
 venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Data / cache (large files, regeneratable)
+# ── Market-data corpora (huge, regenerated; canonical copy lives on AWS) ─────
+recordings/
+recordings_fresh/
 data/cache/
-# Ignore everything under data/logs/ except the precomputed lookup table
-# the trader depends on at runtime
+*.jsonl
+*.jsonl.gz
+
+# data/logs is scratch EXCEPT the precomputed table the trader needs at runtime
 data/logs/*
 !data/logs/minute_analysis_2d.csv
 
-# Logs
+# ── Runtime state, logs, probe output (per-machine, regenerated) ──────────────
 *.log
-
-# Local trader state (per-machine, regenerated at runtime)
+*.out
 live/*.csv
-
-# Fair-value (v3) pipeline data & scratch outputs (large / regeneratable)
+nn/replay_*.csv
+nn/shadow_log*.csv
 live/fv/*.csv
 live/fv/*.txt
-live/fv/*.out
 live/fv/basis_report.json
 
-# IDE
+# Backups / snapshots of any kind (the live originals ARE tracked; copies not)
+*.bak
+*.bak.*
+*.bak_*
+
+# NOTE: nn/checkpoints/*.pt and nn/data/*.npz are tracked ON PURPOSE
+# (runtime model deps). Only their .bak_* copies are ignored above.
+
+# ── Editors / OS ──────────────────────────────────────────────────────────────
 .idea/
-
-# Scratch / handoff notes
-CONTEXT_HANDOFF.md
-
-# OS
+.vscode/
 .DS_Store
 Thumbs.db
 
-# market-data recordings (too big for git; corpus lives on AWS/disk)
-recordings/
-recordings_fresh/
+# ── Scratch / handoff notes ───────────────────────────────────────────────────
+CONTEXT_HANDOFF.md
+scratch/
+scratchpad/
