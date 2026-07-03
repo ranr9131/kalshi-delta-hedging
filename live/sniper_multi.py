@@ -68,22 +68,6 @@ from fair_price_model_v2 import (
     FALLBACK_SIGMA_PER_MIN as ASSET_VOL_PER_MIN,
 )
 
-# Optional v3 fair-value model (60s-avg settlement + fat tails + index basis).
-# FAIR_MODEL=v3 routes pricing through v3 (15M markets -> greater_or_equal family).
-_FAIR_MODEL = os.environ.get("FAIR_MODEL", "v2").lower()
-if _FAIR_MODEL == "v3":
-    import fair_price_model_v3 as _v3
-    _V3_PARTIAL = os.environ.get("FAIR_V3_PARTIAL", "0") == "1"
-
-
-def _fair_p_yes(crypto_price, strike, minutes_left, asset, strike_type="greater_or_equal"):
-    """Dispatch to v2 (default) or v3 based on FAIR_MODEL."""
-    if _FAIR_MODEL == "v3":
-        return _v3.fair_p(crypto_price, minutes_left, asset, floor_strike=strike,
-                          strike_type=strike_type or "greater_or_equal",
-                          use_partial_history=_V3_PARTIAL)
-    return fair_p_yes(crypto_price, strike, minutes_left, asset)
-
 # Side-performance gate.  Blocks fires for (asset, side) combos whose rolling
 # 1h win rate has collapsed (catches regime-induced bleeding before the daily
 # loss limit does).  Adaptive — no trend prediction, just measures what's
@@ -501,8 +485,7 @@ def _maybe_snipe(ticker: str, market: dict, book: ob.Book,
     if asset is None or strike is None:
         return
 
-    fpy = _fair_p_yes(crypto_price, strike, minutes_left, asset,
-                      strike_type=market.get("strike_type", "greater_or_equal"))
+    fpy = fair_p_yes(crypto_price, strike, minutes_left, asset)
     fpn = 1.0 - fpy
     yes_ask = book.yes_ask(); no_ask = book.no_ask()
     edge_dollars = MIN_EDGE_CENTS / 100.0

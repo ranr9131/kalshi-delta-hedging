@@ -71,14 +71,6 @@ from coinbase_feeds import make_feed
 from fair_price_model_v2 import record_price
 from daily_calibration import fair_p_yes_daily, daily_calibration_active
 
-# Optional v3 fair-value model (60s-avg settlement + fat tails + index basis).
-# Enable with FAIR_MODEL=v3; defaults to the existing daily-calibrated v2 model.
-_FAIR_MODEL = os.environ.get("FAIR_MODEL", "v2").lower()
-if _FAIR_MODEL == "v3":
-    import fair_price_model_v3 as _v3
-    # use the live partial-average sharpening in the last minute (Coinbase feed)
-    _V3_PARTIAL = os.environ.get("FAIR_V3_PARTIAL", "0") == "1"
-
 ROOT = os.path.dirname(os.path.abspath(__file__))
 env = dotenv_values(os.path.join(ROOT, ".env"))
 API_KEY_ID  = env.get("KALSHI_API_KEY_ID", "")
@@ -171,10 +163,7 @@ def refresh_candidates():
                 close_dt = datetime.fromisoformat(close.replace("Z", "+00:00"))
             except Exception:
                 continue
-            out[m["ticker"]] = {"asset": asset, "strike": strike, "close_dt": close_dt,
-                                "strike_type": m.get("strike_type") or "greater",
-                                "floor_strike": _f(m.get("floor_strike")) if m.get("floor_strike") is not None else None,
-                                "cap_strike": _f(m.get("cap_strike")) if m.get("cap_strike") is not None else None}
+            out[m["ticker"]] = {"asset": asset, "strike": strike, "close_dt": close_dt}
     return out
 
 
@@ -204,14 +193,6 @@ def _fair_c(meta):
     ml = _minutes_left(meta)
     if ml <= 0:
         return None
-    if _FAIR_MODEL == "v3":
-        floor = meta.get("floor_strike")
-        cap = meta.get("cap_strike")
-        st = meta.get("strike_type") or "greater"
-        if floor is None and cap is None:
-            floor = meta["strike"]  # fall back to the single captured strike
-        return _v3.fair_p(sp, ml, meta["asset"], floor_strike=floor, cap_strike=cap,
-                          strike_type=st, use_partial_history=_V3_PARTIAL) * 100.0
     return fair_p_yes_daily(sp, meta["strike"], ml, meta["asset"]) * 100.0
 
 
