@@ -29,6 +29,7 @@ import kalshi_auth
 import kalshi_feed
 import kalshi_trade
 import strategy
+import asian_pricer
 
 # ── Asset selection (BTC by default, ETH/SOL/XRP via ASSET env) ───────────────
 # This module is structured for BTC originally. Multi-asset support added by
@@ -65,6 +66,38 @@ MIN_BET    = float(env.get("MIN_BET", "5.0"))
 # Model coefficients come from s6_calibration.json (fit on the 90d BTC
 # dataset) — BTC-only; do not enable for other assets.
 SIZING        = env.get("SIZING", "sigmoid").strip().lower()
+# Final-2-min Asian-settlement pricer (settlement = 60s BRTI average; the 2D
+# table prices spot and cannot see the banked partial average).
+ASIAN_PRICER  = env.get("ASIAN_PRICER", "true").strip().lower() == "true"
+
+# ── Regime throttle ───────────────────────────────────────────────────────────
+# Chop persists: backtested on 5,350 windows (32 days), skipping whenever <=4
+# of the last 8 SETTLED windows continued raised proxy P&L +14% and cut max
+# drawdown 59% (scratchpad/throttle_backtest.py sweep, robust across K=8..24).
+REGIME_THROTTLE = env.get("REGIME_THROTTLE", "false").strip().lower() == "true"
+REGIME_LOOKBACK = int(env.get("REGIME_LOOKBACK", "8"))
+REGIME_MIN_CONT = float(env.get("REGIME_MIN_CONT", "0.55"))
+
+from collections import deque as _rt_deque
+_REGIME_HIST = _rt_deque(maxlen=REGIME_LOOKBACK)
+
+
+def _regime_record(btc_t0, btc_t5, winner):
+    """Record one settled window's continuation outcome (T+5 leader held?)."""
+    try:
+        t0, t5 = float(btc_t0), float(btc_t5)
+        if winner in ("yes", "no") and t5 > 0 and t5 != t0:
+            _REGIME_HIST.append(1 if ((winner == "yes") == (t5 > t0)) else 0)
+    except (TypeError, ValueError):
+        pass
+
+
+def regime_ok() -> tuple[bool, float]:
+    """(trade?, trailing continuation rate). Warm-up (deque not full) -> trade."""
+    if not REGIME_THROTTLE or len(_REGIME_HIST) < REGIME_LOOKBACK:
+        return True, 1.0
+    rate = sum(_REGIME_HIST) / len(_REGIME_HIST)
+    return rate >= REGIME_MIN_CONT, rate
 S6_BANKROLL   = float(env.get("S6_BANKROLL", "1000.0"))
 S6_KELLY_FRAC = float(env.get("S6_KELLY_FRAC", "0.25"))
 S6_MAX_STAKE  = float(env.get("S6_MAX_STAKE", "150.0"))
@@ -73,20 +106,27 @@ S6_EDGE_MIN   = float(env.get("S6_EDGE_MIN", "0.0"))
 _S6_MODEL = None
 if SIZING == "s6kelly":
     import json as _json
-    _s6_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "s6_calibration.json")
+    # S6_CALIBRATION_PATH lets a shadow arm run a candidate model (e.g.
+    # s6_calibration_v2.json) while other arms keep the incumbent.
+    _s6_path = env.get("S6_CALIBRATION_PATH", "").strip() or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "s6_calibration.json")
     with open(_s6_path) as _f:
         _S6_MODEL = _json.load(_f)
 
 
-def s6_p_win(fair: float, abs_pct: float, minute_idx: int) -> float:
+def s6_p_win(fair: float, abs_pct: float, minute_idx: int,
+             direction_up: bool = True) -> float:
     """Calibrated P(continuation side wins) from the fitted logistic.
-    Predictors must match the fit: logit(fair_2d), abs_pct, minute/14."""
+    Predictors must match the fit: logit(fair_2d), abs_pct, minute/14,
+    and (v2 models, 4 coefficients) direction_up."""
     c = _S6_MODEL["coef"]
     f = min(1 - 1e-4, max(1e-4, fair))
     z = (_S6_MODEL["intercept"]
          + c[0] * math.log(f / (1 - f))
          + c[1] * abs_pct
          + c[2] * (minute_idx / 14.0))
+    if len(c) > 3:
+        z += c[3] * (1.0 if direction_up else 0.0)
     return 1.0 / (1.0 + math.exp(-z))
 
 # Hard cap on total dollars wagered within a single 15-min window. The DH loop
@@ -507,7 +547,9 @@ MAX_PRICE_AGE_SECS   = 10
 # Key: (minute, bucket_index)  Value: (win_rate, avg_fill, n)
 _FAIR_PRICE_2D: dict[tuple[int, int], tuple[float, float, int]] = {}
 
-_2D_CSV_PATH = os.path.join(
+# FAIR_2D_PATH lets a shadow arm run a candidate table (e.g. the v2 refit)
+# while other arms keep the incumbent.
+_2D_CSV_PATH = env.get("FAIR_2D_PATH", "").strip() or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "logs", "minute_analysis_2d.csv"
 )
 _2D_BUCKETS = [
@@ -742,7 +784,19 @@ def log_bet(row: dict):
 
 
 def log_window(row: dict):
+    _regime_record(row.get("btc_t0"), row.get("btc_t5"), row.get("market_winner"))
     _append_csv(WINDOW_LOG_PATH, WINDOW_LOG_FIELDS, row)
+
+
+# Seed the regime history from this arm's own window log so a restart doesn't
+# reset the throttle to warm-up.
+if REGIME_THROTTLE and os.path.exists(WINDOW_LOG_PATH):
+    try:
+        with open(WINDOW_LOG_PATH, newline="") as _rf:
+            for _row in list(csv.DictReader(_rf))[-REGIME_LOOKBACK:]:
+                _regime_record(_row.get("btc_t0"), _row.get("btc_t5"), _row.get("market_winner"))
+    except Exception:
+        pass
 
 
 # ── DH loop ───────────────────────────────────────────────────────────────────
@@ -961,7 +1015,20 @@ def run_dh_loop(
             # sigmoid targets above; f_btc/g_misprice still logged for compare).
             # cost = what the continuation contract actually costs incl. buffer.
             cost  = (yes_ask + buf) if direction_up else ((1.0 - yes_bid) + buf)
-            p_win = s6_p_win(fair, abs_pct_move, minute_idx)
+            p_win = s6_p_win(fair, abs_pct_move, minute_idx, direction_up)
+            # Final-2-min Asian override: settlement is the 60s average, and
+            # once prints start banking, the running partial average is
+            # observable state the table/logistic cannot see. The Asian
+            # estimator IS a probability, so it bypasses the logistic.
+            if ASIAN_PRICER and seconds_left <= 120:
+                _close_epoch = (window_ts + timedelta(minutes=WINDOW_MINUTES)).timestamp()
+                _p_up_asian = asian_pricer.p_up(btc_t0, _close_epoch)
+                if _p_up_asian is not None:
+                    _p_asian = _p_up_asian if direction_up else 1.0 - _p_up_asian
+                    _ast = asian_pricer.state(_close_epoch)
+                    log.info(f"  asian: p_table={p_win:.3f} -> p_asian={_p_asian:.3f} "
+                             f"(banked={_ast['banked_frac']:.2f} n={_ast['n_banked']})")
+                    p_win = _p_asian
             fee   = 0.07 * cost * (1.0 - cost)          # real Kalshi fee/contract (confirmed vs live fill)
             s6_edge = p_win - cost - fee                # edge NET of fee
             if s6_edge > S6_EDGE_MIN and cost < 0.99:
@@ -994,6 +1061,13 @@ def run_dh_loop(
             target_no  = 0.0
         elif SIDE_FILTER == "no_only":
             target_yes = 0.0
+
+        # Regime throttle: recent windows show chop -> stand down entirely.
+        _r_ok, _r_rate = regime_ok()
+        if not _r_ok and (target_yes > 0 or target_no > 0):
+            log.info(f"  regime throttle: trailing cont={_r_rate:.2f} < {REGIME_MIN_CONT:.2f} — standing down")
+            target_yes = 0.0
+            target_no  = 0.0
 
         if MODE == "dh-target":
             bet_yes = max(0.0, target_yes - yes_exposure)
@@ -1571,6 +1645,9 @@ def main():
         log.error("No BTC price received within 30s. Check network and Coinbase WebSocket. Exiting.")
         sys.exit(1)
     log.info(f"BTC feed live: ${price_feed.get_price():,.2f}")
+    if ASIAN_PRICER:
+        asian_pricer.start(price_feed.get_price)
+        log.info("Asian-settlement pricer sampling at 1s (active in final 120s of each window)")
 
     # Start Kalshi WebSocket feed for real-time bid/ask (REST API lags by 3-5c).
     # Initial ticker will be set when first window opens via set_ticker().
