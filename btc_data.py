@@ -112,12 +112,21 @@ def _fetch_day(day_start_ts, day_str, day_num, total_days):
 
 def lookup(prices, ts_sec):
     """
-    Look up BTC price at a specific unix second timestamp.
-    Tries the exact minute boundary, then scans ±2 minutes.
+    Look up the BTC price KNOWABLE at a specific unix second timestamp.
+
+    Coinbase candles are keyed by their START timestamp and their close is the
+    price at key+60. So the last *completed* candle at time t is the one keyed
+    (t//60)*60 - 60, whose close is the price at ~t. Looking up the candle
+    keyed t returns the close of [t, t+60) — the price 60 seconds in the
+    FUTURE. That off-by-one-candle lookahead inflated every backtest built on
+    this function (discovered 2026-07-07; see test_no_lookahead.py).
+
+    Falls back further into the past only — never forward — so a data gap can
+    make the price slightly stale but never leak future information.
     """
-    minute_ts = (ts_sec // 60) * 60
-    for offset in [0, 60, -60, 120, -120]:
-        key = str(minute_ts + offset)
+    last_closed = (ts_sec // 60) * 60 - 60
+    for offset in [0, -60, -120, -180]:
+        key = str(last_closed + offset)
         if key in prices:
             return prices[key]
     return None

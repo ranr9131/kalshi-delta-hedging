@@ -60,3 +60,13 @@ Thumbs.db
 CONTEXT_HANDOFF.md
 scratch/
 scratchpad/
+
+# Machine-local Claude Code settings
+.claude/
+
+# Pulled server data & recorded books (large, not source)
+data/server_logs/
+live/book_log.jsonl
+
+# Sim outputs (regeneratable)
+live/sim.*.out
