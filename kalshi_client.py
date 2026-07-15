@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from config import KALSHI_BASE_URL, KALSHI_SERIES, CACHE_DIR
 
 
-def _get(path, params=None, retries=3):
+def _get(path, params=None, retries=6):
     url = f"{KALSHI_BASE_URL}{path}"
     for attempt in range(retries):
         try:
@@ -76,10 +76,13 @@ def fetch_settled_markets(days=30):
 def fetch_candlesticks(ticker, open_time_iso, close_time_iso):
     """
     Fetches 1-minute candlesticks for a historical market.
-    Returns a list of {ts, yes_open, yes_close} dicts sorted by time.
-    Caches per-ticker to avoid repeat calls.
+    Returns a list of {ts, yes_open, yes_close, ask, bid} dicts sorted by time.
+    `yes_close` is the last TRADE print (can be stale/thin — do not treat as an
+    executable fill); `ask`/`bid` are the top-of-book closes, i.e. the prices a
+    taker could actually cross at the end of that minute.
+    Caches per-ticker (cache v2; old candles_* files lack ask/bid).
     """
-    cache_path = os.path.join(CACHE_DIR, f"candles_{ticker}.json")
+    cache_path = os.path.join(CACHE_DIR, f"candles_v2_{ticker}.json")
     if os.path.exists(cache_path):
         with open(cache_path) as f:
             return json.load(f)
@@ -102,17 +105,30 @@ def fetch_candlesticks(ticker, open_time_iso, close_time_iso):
         # so the same code works for KXBTC15M, KXETH15M, KXSOL15M, etc.
         _series = ticker.split("-")[0] if "-" in ticker else KALSHI_SERIES
         data = _get(f"/series/{_series}/markets/{ticker}/candlesticks", params=params)
+    except requests.HTTPError as e:
+        print(f"  Could not fetch candlesticks for {ticker}: {e}")
+        if e.response is not None and e.response.status_code == 404:
+            # Kalshi purges candlestick history for old markets — the absence
+            # is permanent, so cache it to avoid re-requesting every run.
+            with open(cache_path, "w") as f:
+                json.dump([], f)
+        return []
     except Exception as e:
         print(f"  Could not fetch candlesticks for {ticker}: {e}")
         return []
+    time.sleep(0.15)  # polite pacing on cache misses; bulk refetches 429 without it
 
     raw = data.get("candlesticks", [])
     result = []
     for c in raw:
         price = c.get("price", {})
+        ask = c.get("yes_ask", {})
+        bid = c.get("yes_bid", {})
         # API uses open_dollars/close_dollars suffix
         yes_open  = price.get("open_dollars")  or price.get("open")
         yes_close = price.get("close_dollars") or price.get("close")
+        ask_close = ask.get("close_dollars") or ask.get("close")
+        bid_close = bid.get("close_dollars") or bid.get("close")
         if yes_open is None or yes_close is None:
             continue
         # Optional richer fields used by the NN dataset builder. Existing
@@ -120,22 +136,24 @@ def fetch_candlesticks(ticker, open_time_iso, close_time_iso):
         yes_high = price.get("high_dollars") or price.get("high") or yes_close
         yes_low  = price.get("low_dollars")  or price.get("low")  or yes_close
         yes_mean = price.get("mean_dollars") or price.get("mean") or yes_close
-        bid = c.get("yes_bid", {}) or {}
-        ask = c.get("yes_ask", {}) or {}
-        bid_close = bid.get("close_dollars") or bid.get("close") or yes_close
-        ask_close = ask.get("close_dollars") or ask.get("close") or yes_close
         volume = c.get("volume_fp") or c.get("volume") or 0
-        result.append({
+        row = {
             "ts": c["end_period_ts"],
             "yes_open":  float(yes_open),
             "yes_close": float(yes_close),
             "yes_high":  float(yes_high),
             "yes_low":   float(yes_low),
             "yes_mean":  float(yes_mean),
-            "yes_bid_close": float(bid_close),
-            "yes_ask_close": float(ask_close),
+            "yes_bid_close": float(bid_close if bid_close is not None else yes_close),
+            "yes_ask_close": float(ask_close if ask_close is not None else yes_close),
             "volume":    float(volume),
-        })
+        }
+        # Executable top-of-book closes; present only when the API had a quote.
+        if ask_close is not None:
+            row["ask"] = float(ask_close)
+        if bid_close is not None:
+            row["bid"] = float(bid_close)
+        result.append(row)
 
     result.sort(key=lambda x: x["ts"])
 
@@ -156,3 +174,18 @@ def get_yes_price_at(candles, target_ts):
         else:
             break
     return price
+
+
+def get_quotes_at(candles, target_ts):
+    """
+    Returns the most recent candle row at or before target_ts (with ask/bid
+    when available), or None. Use row["ask"] / 1 - row["bid"] as the
+    executable taker fill for YES / NO respectively.
+    """
+    row = None
+    for c in candles:
+        if c["ts"] <= target_ts:
+            row = c
+        else:
+            break
+    return row

@@ -1,0 +1,23 @@
+{
+  "model": "logistic",
+  "predictors": [
+    "logit_fair_2d",
+    "abs_pct",
+    "minute_frac14",
+    "direction_up"
+  ],
+  "coef": [
+    0.8096099048173839,
+    2.102908248988894,
+    0.2299701097546182,
+    -0.06172548816254389
+  ],
+  "intercept": -0.03325888165093083,
+  "n_samples": 87755,
+  "base_rate": 0.7530397128368754,
+  "fitted_at": "2026-07-03T16:08:56.448033+00:00",
+  "data_window": "2026-04-26..2026-07-03",
+  "table_file": "minute_analysis_2d_v2.csv",
+  "holdout_brier_new": 0.16397264574083809,
+  "holdout_brier_old": 0.16456319134412614
+}

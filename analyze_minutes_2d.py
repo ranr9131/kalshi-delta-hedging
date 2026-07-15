@@ -20,6 +20,7 @@ Outputs:
 
 import os
 import csv
+import math
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -50,17 +51,15 @@ def get_bucket(pct):
     return N_BUCKETS - 1
 
 
-def yes_pnl(stake, yes_price, resolved_yes):
-    if resolved_yes:
-        return stake * (1 - yes_price) / yes_price * (1 - FEE_RATE)
-    return -stake
+def kalshi_fee(c):
+    """Per-contract taker fee, ceil'd to the cent: ceil(0.07*c*(1-c))."""
+    return math.ceil(FEE_RATE * c * (1.0 - c) * 100.0) / 100.0
 
 
-def no_pnl(stake, yes_price, resolved_yes):
-    no_price = 1 - yes_price
-    if not resolved_yes:
-        return stake * (1 - no_price) / no_price * (1 - FEE_RATE)
-    return -stake
+def contract_pnl(cost, won):
+    """Net P&L of one contract bought at `cost`, fee charged on every trade."""
+    fee = kalshi_fee(cost)
+    return (1.0 - cost - fee) if won else (-cost - fee)
 
 
 def run():
@@ -144,12 +143,13 @@ def run():
             continue
 
         for minute in ALL_MINUTES:
-            t          = t0 + minute * 60
-            btc_t      = btc_data.lookup(btc_prices, t)
-            kalshi_yes = kalshi_client.get_yes_price_at(candles, t)
+            t     = t0 + minute * 60
+            btc_t = btc_data.lookup(btc_prices, t)
+            row   = kalshi_client.get_quotes_at(candles, t)
 
-            if btc_t is None or kalshi_yes is None:
+            if btc_t is None or row is None:
                 continue
+            kalshi_yes = row["yes_close"]
             if not (0.01 < kalshi_yes < 0.99):
                 continue
 
@@ -158,9 +158,16 @@ def run():
             signal_correct = (direction_up == resolved_yes)
             bi             = get_bucket(abs_pct_move)
 
-            fill_price = kalshi_yes if direction_up else (1.0 - kalshi_yes)
-            flat = yes_pnl(1.0, kalshi_yes, resolved_yes) if direction_up else \
-                   no_pnl(1.0, kalshi_yes, resolved_yes)
+            # Executable taker fill: cross the book, not the last trade print.
+            # Buy YES at the ask; buy NO at 1 - bid. Fall back to the trade
+            # close only if the candle predates the ask/bid cache fields.
+            if direction_up:
+                fill_price = row.get("ask", kalshi_yes)
+            else:
+                fill_price = 1.0 - row.get("bid", kalshi_yes)
+            if not (0.01 < fill_price < 0.99):
+                continue
+            flat = contract_pnl(fill_price, signal_correct)
 
             s = stats[minute][bi]
             s["n"]             += 1
@@ -201,7 +208,8 @@ def run():
             wr       = s["correct"] / n
             avg_fill = np.mean(s["fill_prices"])
             edge     = wr - avg_fill
-            flat_roi = sum(s["flat_pnl"]) / n * 100
+            # net return on cost: mean per-contract P&L / mean contract cost
+            flat_roi = sum(s["flat_pnl"]) / sum(s["fill_prices"]) * 100
 
             z  = 1.96
             lo = (wr + z**2/(2*n) - z * np.sqrt(wr*(1-wr)/n + z**2/(4*n**2))) / (1 + z**2/n)
