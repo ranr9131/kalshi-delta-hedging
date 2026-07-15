@@ -37,7 +37,9 @@ def _s(name: str, default: str) -> str:
 
 
 # ---------------------------------------------------------------- mode
-PAPER             = _b("LIP_PAPER", True)    # paper mode: never place orders
+# fail-SAFE parse: live only on explicit 0/false/no/off — a typo'd or
+# unrecognized value must stay paper, never silently go live
+PAPER = os.environ.get("LIP_PAPER", "1").strip().lower() not in ("0", "false", "no", "off")
 CANCEL_ON_EXIT    = _b("LIP_CANCEL_ON_EXIT", True)
 KILL_FILE         = _s("LIP_KILL_FILE", os.path.join(os.path.dirname(__file__), "lip_kill"))
 
@@ -53,7 +55,8 @@ MIN_REWARD_PER_DAY    = _f("LIP_MIN_REWARD_PER_DAY", 5.0)     # $/day program ra
 MIN_EXPECTED_PAYOUT   = _f("LIP_MIN_EXPECTED_PAYOUT", 1.50)   # $ expected for remainder of period
                                                               # (Kalshi pays nothing under $1.00)
 MIN_HOURS_TO_CLOSE    = _f("LIP_MIN_HOURS_TO_CLOSE", 2.0)
-SERIES_BLACKLIST      = [s for s in _s("LIP_SERIES_BLACKLIST", "").split(",") if s]
+SERIES_BLACKLIST      = [s.strip().upper() for s in
+                         _s("LIP_SERIES_BLACKLIST", "").split(",") if s.strip()]
 
 # ---------------------------------------------------------------- quoting policy
 SIZE_MULT             = _f("LIP_SIZE_MULT", 1.0)   # our size per side = mult x target_size

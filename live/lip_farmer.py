@@ -80,9 +80,19 @@ class Farmer:
         self.programs = {}
         self.held = {}          # ticker -> Candidate
         self.state = self._load_state()
-        self.fills_today = 0
-        self.fills_day = datetime.now(timezone.utc).date().isoformat()
-        self.paused_until = 0.0
+        # breaker/pause state survives restarts — a crash during an adverse-
+        # flow episode must not reset the day's fill count or un-pause
+        today = datetime.now(timezone.utc).date().isoformat()
+        if self.state.get("fills_day") == today:
+            self.fills_today = int(self.state.get("fills_today", 0))
+            self.fills_day = today
+        else:
+            self.fills_today = 0
+            self.fills_day = today
+        self.paused_until = float(self.state.get("paused_until", 0.0))
+        if self.paused_until > time.time():
+            log.warning("restored PAUSED state until %s",
+                        datetime.fromtimestamp(self.paused_until, timezone.utc))
         self._timers = {}
         self._stop = False
 
@@ -109,6 +119,9 @@ class Farmer:
                     c.program.end_ts, timezone.utc).isoformat(timespec="seconds")}
             for t, c in self.held.items()}
         self.state["paper"] = self.paper
+        self.state["fills_today"] = self.fills_today
+        self.state["fills_day"] = self.fills_day
+        self.state["paused_until"] = self.paused_until
         self.state["updated"] = _now_iso()
         tmp = cfg.STATE_FILE + ".tmp"
         with open(tmp, "w") as f:
@@ -139,14 +152,20 @@ class Farmer:
         if not self.paper:
             try:
                 bal = lip_api.get_balance(self.pk, self.kid)
-                if bal is not None and bal < cfg.MIN_BALANCE:
-                    log.warning("balance $%.2f below floor $%.2f - withdrawing all",
-                                bal, cfg.MIN_BALANCE)
-                    self.quoter.withdraw_all()
-                    self.held = {}
-                    return
             except Exception as e:
+                bal = None
                 log.warning("balance check failed: %s", e)
+            if bal is None:
+                # fail SAFE: without a readable balance, keep what we hold
+                # but add nothing new (never allocate blind)
+                log.warning("balance unreadable — freezing portfolio this cycle")
+                return
+            if bal < cfg.MIN_BALANCE:
+                log.warning("balance $%.2f below floor $%.2f - withdrawing all",
+                            bal, cfg.MIN_BALANCE)
+                self.quoter.withdraw_all()
+                self.held = {}
+                return
         chosen = lip_allocator.select_portfolio(
             self.programs,
             held_tickers=set(self.held.keys()),
@@ -173,6 +192,11 @@ class Farmer:
         dt = min(now - self.state.get("last_accrual_ts", now), 300.0)
         self.state["last_accrual_ts"] = now
         for ticker, cand in list(self.held.items()):
+            if os.path.exists(cfg.KILL_FILE) or self._stop:
+                return          # react to the kill switch mid-pass, not after
+            if self._due("fills", cfg.FILL_POLL_SEC):
+                self.poll_fills()   # a long quotes pass must not starve
+                                    # fill detection (adverse-flow reaction)
             if self.state.get("cooldowns", {}).get(ticker, 0) > now:
                 self.quoter.withdraw(ticker)
                 continue
@@ -270,30 +294,35 @@ class Farmer:
                     self.quoter.withdraw(held_t)
                     self.held.pop(held_t, None)
             self.fills_today += 1
+            self._save_state()   # quarantine/breaker state must survive a crash NOW
         self.state["seen_fill_ids"] = list(seen)[-2000:]
         self.state["fill_cursor_ts"] = int(time.time()) - 120
-        if self.fills_today >= cfg.MAX_FILLS_PER_DAY:
+        if self.fills_today >= cfg.MAX_FILLS_PER_DAY and \
+                self.paused_until < time.time():
             log.warning("circuit breaker: %d fills today >= %d - pausing 6h",
                         self.fills_today, cfg.MAX_FILLS_PER_DAY)
             self.quoter.withdraw_all()
             self.paused_until = time.time() + 6 * 3600
+            self._save_state()
 
     # ------------------------------------------------------------ lifecycle
 
     def shutdown(self, *_):
-        if self._stop:
-            return
-        self._stop = True
         log.info("shutting down%s", " - cancelling all LIP orders"
                  if (cfg.CANCEL_ON_EXIT and not self.paper) else "")
         if cfg.CANCEL_ON_EXIT:
             self.quoter.withdraw_all()
         self._save_state()
-        sys.exit(0)
+
+    def _sig(self, *_):
+        # handlers must not do network I/O (token-bucket lock is not
+        # reentrant — a signal mid-take() would deadlock); just flag and let
+        # the main loop run the orderly shutdown
+        self._stop = True
 
     def run(self, once=False):
-        signal.signal(signal.SIGTERM, self.shutdown)
-        signal.signal(signal.SIGINT, self.shutdown)
+        signal.signal(signal.SIGTERM, self._sig)
+        signal.signal(signal.SIGINT, self._sig)
         log.info("LIP farmer starting (%s mode), caps: %d markets / $%.0f capital / $%.0f worst-loss",
                  "PAPER" if self.paper else "LIVE", cfg.MAX_MARKETS,
                  cfg.MAX_TOTAL_CAPITAL, cfg.MAX_TOTAL_WORST_LOSS)
@@ -303,6 +332,19 @@ class Farmer:
                      len(self.quoter.orders))
         self.refresh_programs()
         self.reallocate()
+        if not self.paper:
+            # evict adopted orders that don't belong: not in the chosen
+            # portfolio, or under an active market/series cooldown — a prior
+            # crash must not leave orders resting in a quarantined series
+            now = time.time()
+            cd = self.state.get("cooldowns", {})
+            scd = self.state.get("series_cooldowns", {})
+            for t in list(self.quoter.orders):
+                cooled = cd.get(t, 0) > now or \
+                    scd.get(t.split("-")[0], 0) > now
+                if t not in self.held or cooled or now < self.paused_until:
+                    log.info("startup eviction: cancelling adopted orders on %s", t)
+                    self.quoter.withdraw(t)
         self.refresh_quotes()
         self._save_state()
         for name, iv in (("programs", 0), ("alloc", 0), ("quotes", 0), ("state", 0)):
@@ -314,23 +356,28 @@ class Farmer:
             if cfg.CANCEL_ON_EXIT and not self.paper:
                 self.quoter.withdraw_all()
             return
-        while not self._stop:
-            if os.path.exists(cfg.KILL_FILE):
-                log.warning("kill file found")
-                self.shutdown()
-            if self._due("programs", cfg.PROGRAM_REFRESH_SEC):
-                self.refresh_programs()
-            if self._due("alloc", cfg.ALLOC_INTERVAL_SEC):
-                self.reallocate()
-            if self._due("quotes", cfg.QUOTE_REFRESH_SEC):
-                self.refresh_quotes()
-            if self._due("fills", cfg.FILL_POLL_SEC):
-                self.poll_fills()
-            if self._due("sync", 300):
-                self.quoter.sync_from_exchange()
-            if self._due("state", cfg.STATE_FLUSH_SEC):
-                self._save_state()
-            time.sleep(1)
+        try:
+            while not self._stop:
+                if os.path.exists(cfg.KILL_FILE):
+                    log.warning("kill file found")
+                    break
+                if self._due("programs", cfg.PROGRAM_REFRESH_SEC):
+                    self.refresh_programs()
+                if self._due("alloc", cfg.ALLOC_INTERVAL_SEC):
+                    self.reallocate()
+                if self._due("quotes", cfg.QUOTE_REFRESH_SEC):
+                    self.refresh_quotes()
+                if self._due("fills", cfg.FILL_POLL_SEC):
+                    self.poll_fills()
+                self.quoter.retry_pending_cancels()
+                if self._due("sync", 300):
+                    self.quoter.sync_from_exchange()
+                if self._due("state", cfg.STATE_FLUSH_SEC):
+                    self._save_state()
+                time.sleep(1)
+        finally:
+            # NEVER exit with orders resting — crash, kill file, or signal
+            self.shutdown()
 
 
 if __name__ == "__main__":

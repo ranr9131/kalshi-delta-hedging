@@ -121,6 +121,9 @@ def evaluate_market(prog: Program, our_resting: dict = None) -> Optional[Candida
     except Exception as e:
         log.warning("orderbook %s failed: %s", prog.ticker, e)
         return None
+    if raw is None:                      # 429 / empty API response
+        log.warning("orderbook %s returned None (rate limit?)", prog.ticker)
+        return None
     yes, no = scoring.parse_orderbook(raw)
     if our_resting:
         yes = scoring.strip_our_orders(yes, our_resting.get("yes", []))
@@ -158,7 +161,12 @@ def select_portfolio(programs: dict, held_tickers: set,
     # filter on market metadata (status / close time) in batch
     by_reward = sorted(eligible, key=lambda p: -p.reward_per_day)
     scan = list({p.ticker: p for p in (
-        [programs[t] for t in held_tickers if t in programs]
+        # held incumbents must re-pass eligibility + cooldowns too — a
+        # blacklisted or quarantined series must not survive via incumbency
+        [programs[t] for t in held_tickers
+         if t in programs and _eligible(programs[t])
+         and cooldowns.get(t, 0) < now
+         and series_cooldowns.get(_series_of(t), 0) < now]
         + by_reward[:cfg.SCAN_TOP_N]
         + random.sample(by_reward[cfg.SCAN_TOP_N:],
                         min(cfg.EXPLORE_N, max(0, len(by_reward) - cfg.SCAN_TOP_N)))

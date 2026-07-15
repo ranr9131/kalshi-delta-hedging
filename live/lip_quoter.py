@@ -25,6 +25,13 @@ class Quoter:
         # order = {order_id, price, size, placed_ts}
         self.orders = {}
         self._paper_seq = 0
+        # orders whose cancel FAILED: an unconfirmed cancel is a live order.
+        # retried by retry_pending_cancels() until confirmed dead — the June
+        # quarantine had a hole here (cancel 429s during fill storms).
+        self.pending_cancels = []       # [{"ticker", "side", "order"}]
+        # markets cooling after insufficient-balance rejects: stop burning
+        # the 1/s write budget re-placing orders the exchange will refuse
+        self.reject_cooldown = {}       # ticker -> until_ts
 
     # ------------------------------------------------------------ primitives
 
@@ -52,6 +59,8 @@ class Quoter:
         orders (old no bid vs new yes bid).
         """
         writes = 0
+        if self.reject_cooldown.get(ticker, 0) > time.time():
+            return 0
         cur = self.orders.setdefault(ticker, {})
         desired = {"yes": (plan.yes_price, plan.yes_size),
                    "no": (plan.no_price, plan.no_size)}
@@ -77,22 +86,45 @@ class Quoter:
                 cur[side] = self._place(ticker, side, want_price, want_size)
                 writes += 1
             except Exception as e:
-                log.warning("place %s %s %dc x%d failed: %s",
-                            ticker, side, want_price, want_size, e)
+                msg = str(e).lower()
+                if "insufficient" in msg or "balance" in msg:
+                    self.reject_cooldown[ticker] = time.time() + 1800
+                    log.warning("place %s rejected for balance — cooling 30min",
+                                ticker)
+                else:
+                    log.warning("place %s %s %dc x%d failed: %s",
+                                ticker, side, want_price, want_size, e)
         return writes
 
+    def retry_pending_cancels(self) -> None:
+        """Keep killing orders whose cancel previously failed."""
+        for item in list(self.pending_cancels):
+            if self._cancel(item["order"]):
+                self.pending_cancels.remove(item)
+                log.info("pending cancel confirmed: %s %s",
+                         item["ticker"], item["order"].get("order_id"))
+
     def withdraw(self, ticker: str) -> None:
-        """Cancel both sides for a market (drop from portfolio / fill pause)."""
+        """Cancel both sides for a market (drop from portfolio / fill pause).
+        A failed cancel goes to pending_cancels for retry — it must never be
+        forgotten while possibly still resting."""
         cur = self.orders.get(ticker) or {}
         for side in ("yes", "no"):
-            if cur.get(side) and self._cancel(cur[side]):
-                cur.pop(side, None)
-        if not cur:
-            self.orders.pop(ticker, None)
+            o = cur.get(side)
+            if not o:
+                continue
+            if not self._cancel(o):
+                self.pending_cancels.append(
+                    {"ticker": ticker, "side": side, "order": o})
+                log.warning("cancel failed for %s %s — queued for retry",
+                            ticker, side)
+            cur.pop(side, None)
+        self.orders.pop(ticker, None)
 
     def withdraw_all(self) -> None:
         for ticker in list(self.orders.keys()):
             self.withdraw(ticker)
+        self.retry_pending_cancels()
 
     def our_ladders(self, ticker: str) -> dict:
         """
@@ -125,14 +157,22 @@ class Quoter:
             return
         seen = {}
         for o in resting:
-            if not (o.get("client_order_id") or "").startswith("lip-"):
+            coid = o.get("client_order_id") or ""
+            if not coid.startswith("lip-"):
                 continue
-            ticker, side = o.get("ticker"), o.get("side")
-            # live API (verified 2026-06-10) only populates the fixed-point
-            # fields: yes_price_dollars/no_price_dollars + remaining_count_fp
-            pd = o.get("yes_price_dollars") if side == "yes" else o.get("no_price_dollars")
+            ticker = o.get("ticker")
+            # V2 orders: our LIP side is encoded in the client_order_id
+            # ("lip-yes-…"/"lip-no-…") — the listing's own side field is
+            # yes-book notation and can't distinguish our yes/no bids
+            parts = coid.split("-")
+            side = parts[1] if len(parts) > 2 and parts[1] in ("yes", "no") \
+                else o.get("side")
+            # listings only populate fixed-point/_dollars fields; prices are
+            # yes-denominated — a no-side bid at q rests at yes price 100-q
+            pd = o.get("yes_price_dollars")
             if pd is not None:
-                price = int(round(float(pd) * 100))
+                yes_c = int(round(float(pd) * 100))
+                price = yes_c if side == "yes" else 100 - yes_c
             else:
                 price = o.get("yes_price") if side == "yes" else o.get("no_price")
             rem = o.get("remaining_count_fp")
