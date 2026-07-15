@@ -247,6 +247,11 @@ MIN_EDGE_CENTS = float(env.get("MIN_EDGE_CENTS", "1.0"))
 # worst (e.g. buying YES at 11c against informed sellers). Set to 0 to disable.
 MIN_BET_PRICE = float(env.get("MIN_BET_PRICE", "0"))
 
+# Skip DH entry decisions before this window minute (0 = off). Lets an arm bet
+# only late-window — e.g. 13.0 restricts to the final ~2 minutes, where the
+# Asian-settlement pricer (not the 2D continuation table) drives p_win.
+DH_MIN_MINUTE = float(env.get("DH_MIN_MINUTE", "0"))
+
 # Invert mode — swap every YES/NO bet decision. Used to test the inverse-signal
 # hypothesis: if the live strategy systematically loses, the inverse should
 # win. Strictly PAPER-only by convention (no live code change needed; just set
@@ -909,6 +914,9 @@ def run_dh_loop(
                 f"{seconds_left:.0f}s left) — aborting remaining decisions for {ticker}"
             )
             break
+
+        if DH_MIN_MINUTE and t_min < DH_MIN_MINUTE:
+            continue
 
         btc_now = get_btc_with_retry()
         if btc_now is None:
@@ -1598,6 +1606,8 @@ def main():
     log.info(f"Edge filter: skip bets with edge < {MIN_EDGE_CENTS:.1f}c (after {kalshi_trade.FILL_BUFFER_CENTS}c buffer)")
     if MIN_BET_PRICE > 0:
         log.info(f"Min bet price floor: ${MIN_BET_PRICE:.3f} (refuse cheaper fills)")
+    if DH_MIN_MINUTE > 0:
+        log.info(f"DH minute floor: no entries before T+{DH_MIN_MINUTE:.1f} (late-window-only arm)")
     if INVERT:
         log.info("⚠ INVERT MODE: every YES/NO decision is SWAPPED (paper-only test)")
 

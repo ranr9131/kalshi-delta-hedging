@@ -49,6 +49,7 @@ import kalshi_orderbook
 from coinbase_feeds import make_feed
 from fair_price_model_v2 import record_price
 import fair_price_model_v3 as v3
+import asian_pricer
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 env = dotenv_values(os.path.join(ROOT, ".env"))
@@ -73,6 +74,11 @@ QUOTE_SIZE     = float(os.environ.get("CONV_MM_SIZE", "50"))        # our restin
 MAKER_FEE_MULT = float(os.environ.get("CONV_MM_FEE_MULT", "1.75"))  # maker fee ≈ 1.75*p*(1-p)c
 TRACK_WITHIN_SEC = float(os.environ.get("CONV_MM_TRACK_SEC", "1200"))  # quote final 20 min
 REFRESH_SEC    = float(os.environ.get("CONV_MM_REFRESH_SEC", "30"))
+# Final-window regime: inside the last ASIAN_ONLY_SEC before close, the v3
+# table fair is not trusted (fills there ran -1.3 to -4.6 c/ct in the 7/13
+# decomposition). Quotes are priced off the live banked settlement average
+# (asian_pricer), and WITHDRAWN entirely when it can't price responsibly.
+ASIAN_ONLY_SEC = float(os.environ.get("CONV_MM_ASIAN_SEC", "120"))
 MID_LO, MID_HI = 0.02, 0.98
 TICK_SEC       = float(os.environ.get("CONV_MM_TICK_SEC", "0.5"))
 
@@ -185,6 +191,31 @@ def _fair_c(meta, spot, ttc):
                      cap_strike=meta.get("cap_strike"),
                      strike_type=meta.get("strike_type", "greater"),
                      use_partial_history=True) * 100.0
+
+
+_asian: dict = {}   # asset -> AsianPricer (1s buffer per asset)
+
+
+def _asian_fair_c(meta):
+    """Fair (cents) from the banked-average pricer, or None if it refuses
+    (stale feed, holes in the banked window, <2 min of vol samples)."""
+    ap = _asian.get(meta["asset"])
+    if ap is None:
+        return None
+    close_ts = meta["close_dt"].timestamp()
+    st = (meta.get("strike_type") or "greater").lower()
+    fl, cp = meta.get("floor_strike"), meta.get("cap_strike")
+    if st in ("greater", "greater_or_equal") and fl:
+        p = ap.p_up(fl, close_ts)
+    elif st in ("less", "less_or_equal") and cp:
+        pu = ap.p_up(cp, close_ts)
+        p = None if pu is None else 1.0 - pu
+    elif st == "between" and fl and cp:
+        p1, p2 = ap.p_up(fl, close_ts), ap.p_up(cp, close_ts)
+        p = None if (p1 is None or p2 is None) else max(0.001, p1 - p2)
+    else:
+        return None
+    return None if p is None else p * 100.0
 
 
 # ── Core quoting decision (pure, unit-testable) ────────────────────────────────
@@ -305,6 +336,11 @@ def _ensure_feeds():
         if a not in _feeds and a in COIN_PRODUCT:
             f = make_feed(COIN_PRODUCT[a]); f.start(); _feeds[a] = f
             log.info(f"[feed] {COIN_PRODUCT[a]}")
+        if a in _feeds and a not in _asian:
+            ap = asian_pricer.AsianPricer()
+            ap.start(lambda a=a: _spot(a))
+            _asian[a] = ap
+            log.info(f"[asian] 1s sampler started for {a}")
 
 
 def _refresh_thread():
@@ -323,7 +359,7 @@ def _refresh_thread():
 
 def collect():
     log.info(f"series={SERIES} margin={MARGIN_C}c size={QUOTE_SIZE} requote={REQUOTE_SEC}s "
-             f"max_pos={MAX_POS}")
+             f"max_pos={MAX_POS} min_spread={MIN_SPREAD_C}c asian_window={ASIAN_ONLY_SEC}s")
     cands = refresh_candidates()
     with _tracked_lock:
         _tracked.update(cands)
@@ -358,7 +394,17 @@ def collect():
                 _quotes[ticker] = {"bid": None, "ask": None, "set_ts": time.time(),
                                    "bb": bb_c, "ba": ba_c}
                 continue
-            fair_c = _fair_c(meta, sp, ttc)
+            if ttc <= ASIAN_ONLY_SEC:
+                fair_c = _asian_fair_c(meta)
+                if fair_c is None:
+                    # final window and the banked average can't be priced
+                    # responsibly -> pull quotes rather than rest stale ones
+                    _quotes[ticker] = {"bid": None, "ask": None,
+                                       "set_ts": time.time(),
+                                       "bb": bb_c, "ba": ba_c}
+                    continue
+            else:
+                fair_c = _fair_c(meta, sp, ttc)
             q = _quotes.get(ticker)
             need = (q is None or (time.time() - q["set_ts"]) >= REQUOTE_SEC
                     or (q["bid"] is not None and q["bid"] >= ba_c)
@@ -374,16 +420,21 @@ def collect():
 
 # ── Settlement + report ────────────────────────────────────────────────────────
 def _settle(ticker, cache):
+    """Only TERMINAL results are cached — caching a pre-finalization None with
+    a long-lived cache made callers treat the market as never-settling
+    (conv_maker_live's daily-loss cap was dead because of this; found 7/14)."""
     if ticker in cache:
         return cache[ticker]
     try:
         r = requests.get(f"{BASE_URL}/trade-api/v2/markets/{ticker}", timeout=10)
         m = r.json().get("market", {}) if r.ok else {}
         res = (m.get("result") or "").lower()
-        cache[ticker] = (1 if res == "yes" else 0) if res in ("yes", "no") else None
+        if res in ("yes", "no"):
+            cache[ticker] = 1 if res == "yes" else 0
+            return cache[ticker]
+        return None
     except Exception:
-        cache[ticker] = None
-    return cache[ticker]
+        return None
 
 
 def report():
