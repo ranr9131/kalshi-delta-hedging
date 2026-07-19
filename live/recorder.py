@@ -44,6 +44,11 @@ KALSHI_REST = "https://api.elections.kalshi.com"
 SERIES = ["KXBTC15M", "KXETH15M", "KXSOL15M", "KXXRP15M"]
 CRYPTO_PRODUCTS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD"]
 MARKET_REFRESH_SEC = 60.0
+# Record the current and immediately upcoming 15-minute windows, not every
+# contract Kalshi labels ``open``.  The API can return dozens of future markets
+# per series; subscribing to all of them multiplied recorder volume enough to
+# exhaust the small EC2 disk.
+MARKET_CLOSE_HORIZON_SEC = 25 * 60
 
 logging.basicConfig(
     level=logging.INFO,
@@ -124,6 +129,7 @@ _open_tickers_lock = threading.Lock()
 
 def refresh_open_markets() -> list[str]:
     out: list[str] = []
+    now = time.time()
     for series in SERIES:
         try:
             r = requests.get(
@@ -132,7 +138,25 @@ def refresh_open_markets() -> list[str]:
                 timeout=10,
             )
             r.raise_for_status()
-            for mk in r.json().get("markets", []):
+            markets = r.json().get("markets", [])
+            selected = []
+            future = []
+            for mk in markets:
+                try:
+                    close_ts = datetime.fromisoformat(
+                        str(mk.get("close_time", "")).replace("Z", "+00:00")
+                    ).timestamp()
+                except (TypeError, ValueError):
+                    continue
+                if close_ts > now - 60:
+                    future.append((close_ts, mk))
+                if now - 60 < close_ts <= now + MARKET_CLOSE_HORIZON_SEC:
+                    selected.append((close_ts, mk))
+            # During a brief listing gap, retain the nearest future event so
+            # the stream is never empty, while still bounding subscriptions.
+            if not selected and future:
+                selected = [min(future, key=lambda item: item[0])]
+            for _, mk in sorted(selected, key=lambda item: item[0]):
                 t = mk.get("ticker")
                 if t:
                     out.append(t)
