@@ -67,9 +67,6 @@ def _write(method: str, path: str, body, private_key, api_key_id,
             time.sleep(2.0 * (attempt + 1))
             continue
         if resp.status_code == 410 or "deprecated" in (resp.text or "")[:200]:
-            # endpoint retired by Kalshi — this must be LOUD, not a warn-loop:
-            # if the place path dies our revenue is fiction; if the cancel
-            # path dies our brakes are gone
             raise RuntimeError(f"DEPRECATED endpoint {path}: {resp.status_code} "
                                f"{resp.text[:200]}")
         return resp
@@ -77,9 +74,7 @@ def _write(method: str, path: str, body, private_key, api_key_id,
 
 
 def _get(path: str, params: dict = None, auth: tuple = None, retries: int = 4):
-    """GET with rate limiting and retries. Raises on final failure — NEVER
-    returns None (a 429 on the last attempt used to fall off the loop end and
-    return None, crashing callers that expect a dict; bug found 7/14)."""
+    """GET with rate limiting and retries; never return an implicit None."""
     for attempt in range(retries + 1):
         try:
             if auth:
@@ -141,22 +136,15 @@ def get_markets_by_tickers(tickers: list) -> dict:
 # Authenticated endpoints
 # --------------------------------------------------------------------------
 
-_post_only_supported = True   # cleared at runtime if the API rejects it
-
+_post_only_supported = True
 
 def place_resting_bid(private_key, api_key_id, ticker: str, side: str,
-                      price_cents: int, count: int) -> dict:
+                      price_cents: int, count: int,
+                      expiration_ts: int = None) -> dict:
     """
-    Rest a buy limit order at an explicit price. side: "yes"|"no".
-
-    V2 single-YES-book semantics (legacy /portfolio/orders 410'd — verified
-    live 2026-07-14): buy YES at p -> side "bid" price p; buy NO at q ->
-    side "ask" at yes-price (100-q). count/price are fixed-point strings.
-    The client_order_id encodes our LIP side ("lip-yes-..."/"lip-no-...")
-    so sync_from_exchange can reconstruct side from the listing.
-    post_only is attempted; if the API rejects it we proceed WITHOUT it and
-    accept bounded cross risk (quotes are price-capped cheap bids; a cross
-    costs at most the capped per-market loss) — logged loudly once.
+    Rest a bid via the V2 single-YES-book API. A no bid at q is represented
+    as a YES ask at 100-q. The LIP side is encoded in client_order_id so the
+    order listing can reconstruct it.
     """
     global _post_only_supported
     price_cents = max(1, min(98, int(price_cents)))
@@ -173,14 +161,16 @@ def place_resting_bid(private_key, api_key_id, ticker: str, side: str,
         "time_in_force": "good_till_canceled",
         "self_trade_prevention_type": "taker_at_cross",
         "client_order_id": f"lip-{side}-{uuid.uuid4()}",
+        "cancel_order_on_pause": True,
     }
     if _post_only_supported:
         body["post_only"] = True
+    if expiration_ts is not None:
+        body["expiration_time"] = int(expiration_ts)
     resp = _write("POST", path, body, private_key, api_key_id)
     if resp.status_code == 400 and "post_only" in (resp.text or ""):
         _post_only_supported = False
-        log.warning("post_only NOT supported on V2 — proceeding without it; "
-                    "cross risk bounded by per-market price caps")
+        log.warning("post_only NOT supported on V2 - proceeding without it")
         body.pop("post_only", None)
         resp = _write("POST", path, body, private_key, api_key_id)
     if not resp.ok:
@@ -192,17 +182,11 @@ def place_resting_bid(private_key, api_key_id, ticker: str, side: str,
 
 
 def cancel_order(private_key, api_key_id, order_id: str) -> bool:
-    """Dual-path cancel: V2 events path first, legacy fallback — mirrors
-    kalshi_trade.cancel_order. The cancel path is the emergency brake; it
-    must survive either endpoint being retired."""
     for path in (f"/trade-api/v2/portfolio/events/orders/{order_id}",
                  f"/trade-api/v2/portfolio/orders/{order_id}"):
         try:
             resp = _write("DELETE", path, None, private_key, api_key_id)
-            if resp.ok:
-                return True
-            # already filled/cancelled is fine for our purposes
-            if resp.status_code in (404, 409):
+            if resp.ok or resp.status_code in (404, 409):
                 return True
             log.warning("cancel %s via %s -> %s %s", order_id, path,
                         resp.status_code, resp.text[:150])
@@ -243,16 +227,12 @@ def get_fills(private_key, api_key_id, min_ts: int = None) -> list:
 
 
 def get_balance(private_key, api_key_id):
-    """Balance in dollars, or None if unparseable (caller must fail safe —
-    the *_fp field quirk means integer fields can come back null)."""
     data = _get("/trade-api/v2/portfolio/balance", auth=(private_key, api_key_id))
-    # only fields with VERIFIED units — guessing a scale wrong would
-    # over-report balance and bypass the floor
     for key, scale in (("balance", 100.0), ("balance_dollars", 1.0)):
-        v = data.get(key)
-        if v is not None:
+        value = data.get(key)
+        if value is not None:
             try:
-                return float(v) / scale
+                return float(value) / scale
             except (TypeError, ValueError):
                 continue
     log.warning("balance response unparseable: %s", str(data)[:200])

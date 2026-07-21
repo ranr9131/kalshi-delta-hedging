@@ -37,6 +37,7 @@ import lip_allocator
 import lip_api
 import lip_config as cfg
 import lip_quoter
+import lip_safe_window
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,8 +81,8 @@ class Farmer:
         self.programs = {}
         self.held = {}          # ticker -> Candidate
         self.state = self._load_state()
-        # breaker/pause state survives restarts — a crash during an adverse-
-        # flow episode must not reset the day's fill count or un-pause
+        # Breaker state survives restarts; a crash during toxic flow must not
+        # reset the fill count or unpause the farmer.
         today = datetime.now(timezone.utc).date().isoformat()
         if self.state.get("fills_day") == today:
             self.fills_today = int(self.state.get("fills_today", 0))
@@ -115,6 +116,10 @@ class Farmer:
                 "reward_per_day": round(c.program.reward_per_day, 2),
                 "capital": round(c.plan.capital_dollars, 2),
                 "worst_loss": round(c.plan.worst_loss_dollars, 2),
+                "safe_policy": c.safe_policy,
+                "safe_deadline": datetime.fromtimestamp(
+                    c.safe_deadline_ts, timezone.utc).isoformat(timespec="seconds")
+                    if c.safe_deadline_ts else None,
                 "end_date": datetime.fromtimestamp(
                     c.program.end_ts, timezone.utc).isoformat(timespec="seconds")}
             for t, c in self.held.items()}
@@ -156,9 +161,7 @@ class Farmer:
                 bal = None
                 log.warning("balance check failed: %s", e)
             if bal is None:
-                # fail SAFE: without a readable balance, keep what we hold
-                # but add nothing new (never allocate blind)
-                log.warning("balance unreadable — freezing portfolio this cycle")
+                log.warning("balance unreadable - freezing portfolio this cycle")
                 return
             if bal < cfg.MIN_BALANCE:
                 log.warning("balance $%.2f below floor $%.2f - withdrawing all",
@@ -193,22 +196,35 @@ class Farmer:
         self.state["last_accrual_ts"] = now
         for ticker, cand in list(self.held.items()):
             if os.path.exists(cfg.KILL_FILE) or self._stop:
-                return          # react to the kill switch mid-pass, not after
+                return
             if self._due("fills", cfg.FILL_POLL_SEC):
-                self.poll_fills()   # a long quotes pass must not starve
-                                    # fill detection (adverse-flow reaction)
+                self.poll_fills()
             if self.state.get("cooldowns", {}).get(ticker, 0) > now:
                 self.quoter.withdraw(ticker)
+                continue
+            safe = lip_safe_window.assess(cand.program, cand.market, now_ts=now)
+            if not safe.allowed:
+                log.warning("safe-window exit %s (%s): %s",
+                            ticker, safe.policy, safe.reason)
+                self.quoter.withdraw(ticker)
+                self.held.pop(ticker, None)
                 continue
             fresh = lip_allocator.evaluate_market(
                 cand.program, self.quoter.our_ladders(ticker))
             if fresh is None:
                 continue
             fresh.market = cand.market
+            fresh.safe_deadline_ts = safe.deadline_ts or 0.0
+            fresh.safe_policy = safe.policy
+            fresh.safe_reason = safe.reason
             self.held[ticker] = fresh
             if now < self.paused_until:
                 continue
-            self.quoter.converge(ticker, fresh.plan)
+            self.quoter.converge(
+                ticker, fresh.plan,
+                expiration_ts=int(fresh.safe_deadline_ts)
+                if fresh.safe_deadline_ts else None,
+            )
             self._record_order_ids()
             accrued = fresh.plan.est.period_share * cand.program.reward_per_day * dt / 86400.0
             self.state["accrual_total"] = self.state.get("accrual_total", 0.0) + accrued
@@ -294,7 +310,7 @@ class Farmer:
                     self.quoter.withdraw(held_t)
                     self.held.pop(held_t, None)
             self.fills_today += 1
-            self._save_state()   # quarantine/breaker state must survive a crash NOW
+            self._save_state()
         self.state["seen_fill_ids"] = list(seen)[-2000:]
         self.state["fill_cursor_ts"] = int(time.time()) - 120
         if self.fills_today >= cfg.MAX_FILLS_PER_DAY and \
@@ -315,9 +331,7 @@ class Farmer:
         self._save_state()
 
     def _sig(self, *_):
-        # handlers must not do network I/O (token-bucket lock is not
-        # reentrant — a signal mid-take() would deadlock); just flag and let
-        # the main loop run the orderly shutdown
+        # Signal handlers must not perform token-bucket/network I/O.
         self._stop = True
 
     def run(self, once=False):
@@ -333,9 +347,8 @@ class Farmer:
         self.refresh_programs()
         self.reallocate()
         if not self.paper:
-            # evict adopted orders that don't belong: not in the chosen
-            # portfolio, or under an active market/series cooldown — a prior
-            # crash must not leave orders resting in a quarantined series
+            # Evict adopted orders that failed the fresh safe-window and
+            # allocation pass, including expired/cooling sibling markets.
             now = time.time()
             cd = self.state.get("cooldowns", {})
             scd = self.state.get("series_cooldowns", {})
@@ -376,7 +389,6 @@ class Farmer:
                     self._save_state()
                 time.sleep(1)
         finally:
-            # NEVER exit with orders resting — crash, kill file, or signal
             self.shutdown()
 
 

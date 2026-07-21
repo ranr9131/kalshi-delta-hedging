@@ -9,6 +9,7 @@ state machine runs so paper behavior == live behavior minus the API writes.
 
 import logging
 import time
+from datetime import datetime
 
 import lip_api
 import lip_config as cfg
@@ -25,24 +26,24 @@ class Quoter:
         # order = {order_id, price, size, placed_ts}
         self.orders = {}
         self._paper_seq = 0
-        # orders whose cancel FAILED: an unconfirmed cancel is a live order.
-        # retried by retry_pending_cancels() until confirmed dead — the June
-        # quarantine had a hole here (cancel 429s during fill storms).
-        self.pending_cancels = []       # [{"ticker", "side", "order"}]
-        # markets cooling after insufficient-balance rejects: stop burning
-        # the 1/s write budget re-placing orders the exchange will refuse
-        self.reject_cooldown = {}       # ticker -> until_ts
+        self.pending_cancels = []
+        self.reject_cooldown = {}
 
     # ------------------------------------------------------------ primitives
 
-    def _place(self, ticker: str, side: str, price: int, size: int):
+    def _place(self, ticker: str, side: str, price: int, size: int,
+               expiration_ts: int = None):
         if self.paper:
             self._paper_seq += 1
             return {"order_id": f"paper-{self._paper_seq}", "price": price,
-                    "size": size, "placed_ts": time.time()}
-        o = lip_api.place_resting_bid(self.pk, self.kid, ticker, side, price, size)
+                    "size": size, "placed_ts": time.time(),
+                    "expiration_ts": expiration_ts}
+        o = lip_api.place_resting_bid(
+            self.pk, self.kid, ticker, side, price, size,
+            expiration_ts=expiration_ts,
+        )
         return {"order_id": o.get("order_id"), "price": price, "size": size,
-                "placed_ts": time.time()}
+                "placed_ts": time.time(), "expiration_ts": expiration_ts}
 
     def _cancel(self, order) -> bool:
         if self.paper or not order.get("order_id"):
@@ -51,7 +52,7 @@ class Quoter:
 
     # ------------------------------------------------------------ public api
 
-    def converge(self, ticker: str, plan) -> int:
+    def converge(self, ticker: str, plan, expiration_ts: int = None) -> int:
         """
         Make live orders match plan (QuotePlan). Returns number of API writes.
         Two-phase: cancel every stale side first, THEN place, so a reprice of
@@ -72,8 +73,10 @@ class Quoter:
                     cur.pop(side, None)
                     writes += 1
                 continue
+            expiry_changed = bool(have) and expiration_ts is not None and \
+                abs(int(have.get("expiration_ts") or 0) - int(expiration_ts)) > 1
             if have and abs(have["price"] - want_price) <= cfg.REPRICE_TOLERANCE \
-                    and have["size"] >= 0.6 * want_size:
+                    and have["size"] >= 0.6 * want_size and not expiry_changed:
                 continue  # close enough; don't churn
             if have:
                 if not self._cancel(have):
@@ -83,13 +86,16 @@ class Quoter:
             to_place.append((side, want_price, want_size))
         for side, want_price, want_size in to_place:
             try:
-                cur[side] = self._place(ticker, side, want_price, want_size)
+                cur[side] = self._place(
+                    ticker, side, want_price, want_size,
+                    expiration_ts=expiration_ts,
+                )
                 writes += 1
             except Exception as e:
                 msg = str(e).lower()
                 if "insufficient" in msg or "balance" in msg:
                     self.reject_cooldown[ticker] = time.time() + 1800
-                    log.warning("place %s rejected for balance — cooling 30min",
+                    log.warning("place %s rejected for balance - cooling 30min",
                                 ticker)
                 else:
                     log.warning("place %s %s %dc x%d failed: %s",
@@ -97,7 +103,6 @@ class Quoter:
         return writes
 
     def retry_pending_cancels(self) -> None:
-        """Keep killing orders whose cancel previously failed."""
         for item in list(self.pending_cancels):
             if self._cancel(item["order"]):
                 self.pending_cancels.remove(item)
@@ -105,18 +110,16 @@ class Quoter:
                          item["ticker"], item["order"].get("order_id"))
 
     def withdraw(self, ticker: str) -> None:
-        """Cancel both sides for a market (drop from portfolio / fill pause).
-        A failed cancel goes to pending_cancels for retry — it must never be
-        forgotten while possibly still resting."""
+        """Cancel both sides; failed cancels remain queued until confirmed."""
         cur = self.orders.get(ticker) or {}
         for side in ("yes", "no"):
-            o = cur.get(side)
-            if not o:
+            order = cur.get(side)
+            if not order:
                 continue
-            if not self._cancel(o):
+            if not self._cancel(order):
                 self.pending_cancels.append(
-                    {"ticker": ticker, "side": side, "order": o})
-                log.warning("cancel failed for %s %s — queued for retry",
+                    {"ticker": ticker, "side": side, "order": order})
+                log.warning("cancel failed for %s %s - queued for retry",
                             ticker, side)
             cur.pop(side, None)
         self.orders.pop(ticker, None)
@@ -157,18 +160,13 @@ class Quoter:
             return
         seen = {}
         for o in resting:
-            coid = o.get("client_order_id") or ""
-            if not coid.startswith("lip-"):
+            client_id = o.get("client_order_id") or ""
+            if not client_id.startswith("lip-"):
                 continue
             ticker = o.get("ticker")
-            # V2 orders: our LIP side is encoded in the client_order_id
-            # ("lip-yes-…"/"lip-no-…") — the listing's own side field is
-            # yes-book notation and can't distinguish our yes/no bids
-            parts = coid.split("-")
+            parts = client_id.split("-")
             side = parts[1] if len(parts) > 2 and parts[1] in ("yes", "no") \
                 else o.get("side")
-            # listings only populate fixed-point/_dollars fields; prices are
-            # yes-denominated — a no-side bid at q rests at yes price 100-q
             pd = o.get("yes_price_dollars")
             if pd is not None:
                 yes_c = int(round(float(pd) * 100))
@@ -180,8 +178,17 @@ class Quoter:
                 o.get("remaining_count", o.get("count", 0))
             if not ticker or price is None:
                 continue
+            expiration_ts = None
+            if o.get("expiration_time"):
+                try:
+                    expiration_ts = int(datetime.fromisoformat(
+                        o["expiration_time"].replace("Z", "+00:00")
+                    ).timestamp())
+                except (TypeError, ValueError):
+                    pass
             rec = {"order_id": o.get("order_id"), "price": int(price),
-                   "size": int(remaining), "placed_ts": time.time()}
+                   "size": int(remaining), "placed_ts": time.time(),
+                   "expiration_ts": expiration_ts}
             prev = seen.setdefault(ticker, {}).get(side)
             if prev:
                 # duplicate lip- order on the same side: keep one, cancel the other

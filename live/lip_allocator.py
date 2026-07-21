@@ -13,12 +13,14 @@ with a hysteresis bonus for incumbents to avoid churn.
 import logging
 import random
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
 import lip_api
 import lip_config as cfg
+import lip_safe_window
 import lip_scoring as scoring
 
 log = logging.getLogger("lip_alloc")
@@ -31,6 +33,7 @@ def _parse_ts(s: str) -> float:
 @dataclass
 class Program:
     ticker: str
+    series_ticker: str
     program_id: str
     reward_dollars: float          # full period reward
     reward_per_day: float
@@ -53,6 +56,9 @@ class Candidate:
     plan: scoring.QuotePlan
     market: dict = field(default_factory=dict)
     book_ts: float = 0.0
+    safe_deadline_ts: float = 0.0
+    safe_policy: str = ""
+    safe_reason: str = ""
 
     @property
     def est_dollars_per_day(self) -> float:
@@ -81,6 +87,7 @@ def fetch_programs() -> dict:
             reward = (p.get("period_reward") or 0) / 10000.0  # centi-cents -> $
             prog = Program(
                 ticker=p["market_ticker"],
+                series_ticker=p.get("series_ticker") or p["market_ticker"].split("-")[0],
                 program_id=p["id"],
                 reward_dollars=reward,
                 reward_per_day=reward / days,
@@ -110,6 +117,8 @@ def _eligible(prog: Program) -> bool:
         return False
     if _series_of(prog.ticker) in cfg.SERIES_BLACKLIST:
         return False
+    if not lip_safe_window.series_supported(prog):
+        return False
     return True
 
 
@@ -121,7 +130,7 @@ def evaluate_market(prog: Program, our_resting: dict = None) -> Optional[Candida
     except Exception as e:
         log.warning("orderbook %s failed: %s", prog.ticker, e)
         return None
-    if raw is None:                      # 429 / empty API response
+    if raw is None:
         log.warning("orderbook %s returned None (rate limit?)", prog.ticker)
         return None
     yes, no = scoring.parse_orderbook(raw)
@@ -161,8 +170,6 @@ def select_portfolio(programs: dict, held_tickers: set,
     # filter on market metadata (status / close time) in batch
     by_reward = sorted(eligible, key=lambda p: -p.reward_per_day)
     scan = list({p.ticker: p for p in (
-        # held incumbents must re-pass eligibility + cooldowns too — a
-        # blacklisted or quarantined series must not survive via incumbency
         [programs[t] for t in held_tickers
          if t in programs and _eligible(programs[t])
          and cooldowns.get(t, 0) < now
@@ -175,6 +182,7 @@ def select_portfolio(programs: dict, held_tickers: set,
     markets = lip_api.get_markets_by_tickers([p.ticker for p in scan])
     min_close = now + cfg.MIN_HOURS_TO_CLOSE * 3600
     candidates = []
+    safe_rejects = Counter()
     for prog in scan:
         m = markets.get(prog.ticker)
         if not m or m.get("status") not in ("active", "open"):
@@ -184,10 +192,17 @@ def select_portfolio(programs: dict, held_tickers: set,
                 continue
         except Exception:
             pass
+        safe = lip_safe_window.assess(prog, m, now_ts=now)
+        if not safe.allowed:
+            safe_rejects[safe.policy] += 1
+            continue
         cand = evaluate_market(prog, (our_resting_by_ticker or {}).get(prog.ticker))
         if cand is None:
             continue
         cand.market = m
+        cand.safe_deadline_ts = safe.deadline_ts or 0.0
+        cand.safe_policy = safe.policy
+        cand.safe_reason = safe.reason
         if cand.est_remaining_payout < cfg.MIN_EXPECTED_PAYOUT:
             continue
         if cand.plan.est.period_share <= 0:
@@ -201,6 +216,7 @@ def select_portfolio(programs: dict, held_tickers: set,
 
     candidates.sort(key=rank_key)
     chosen, cap_used, loss_used = [], 0.0, 0.0
+    event_counts = Counter()
     for c in candidates:
         if len(chosen) >= cfg.MAX_MARKETS:
             break
@@ -210,10 +226,17 @@ def select_portfolio(programs: dict, held_tickers: set,
             continue
         if loss_used + loss > cfg.MAX_TOTAL_WORST_LOSS:
             continue
+        event_key = lip_safe_window.risk_group(c.program, c.market)
+        if event_counts[event_key] >= cfg.MAX_MARKETS_PER_EVENT:
+            continue
         chosen.append(c)
         cap_used += cap
         loss_used += loss
+        event_counts[event_key] += 1
     log.info("allocation: %d candidates -> %d chosen, capital $%.0f, worst-loss $%.0f, est $%.2f/day",
              len(candidates), len(chosen), cap_used, loss_used,
              sum(c.est_dollars_per_day for c in chosen))
+    if safe_rejects:
+        log.info("safe-window rejects: %s",
+                 ", ".join(f"{k}={v}" for k, v in sorted(safe_rejects.items())))
     return chosen

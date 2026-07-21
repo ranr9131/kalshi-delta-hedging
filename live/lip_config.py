@@ -37,9 +37,9 @@ def _s(name: str, default: str) -> str:
 
 
 # ---------------------------------------------------------------- mode
-# fail-SAFE parse: live only on explicit 0/false/no/off — a typo'd or
-# unrecognized value must stay paper, never silently go live
-PAPER = os.environ.get("LIP_PAPER", "1").strip().lower() not in ("0", "false", "no", "off")
+# Fail safe: live only on an explicit false value. A typo must stay paper.
+PAPER = os.environ.get("LIP_PAPER", "1").strip().lower() not in \
+    ("0", "false", "no", "off")
 CANCEL_ON_EXIT    = _b("LIP_CANCEL_ON_EXIT", True)
 KILL_FILE         = _s("LIP_KILL_FILE", os.path.join(os.path.dirname(__file__), "lip_kill"))
 
@@ -57,6 +57,31 @@ MIN_EXPECTED_PAYOUT   = _f("LIP_MIN_EXPECTED_PAYOUT", 1.50)   # $ expected for r
 MIN_HOURS_TO_CLOSE    = _f("LIP_MIN_HOURS_TO_CLOSE", 2.0)
 SERIES_BLACKLIST      = [s.strip().upper() for s in
                          _s("LIP_SERIES_BLACKLIST", "").split(",") if s.strip()]
+
+# ---------------------------------------------------------------- schedule-safe windows
+# A Kalshi market can stay open after its answer is already observable.  The
+# LIP farmer must leave before that information deadline, not merely before
+# close_time.  Unknown series fail closed by default; extend the scheduled or
+# weather pattern lists only after their exchange metadata has been verified.
+SAFE_WINDOW_ENABLED       = _b("LIP_SAFE_WINDOW_ENABLED", True)
+SAFE_REQUIRE_CLASSIFIED   = _b("LIP_SAFE_REQUIRE_CLASSIFIED", True)
+SAFE_MIN_REMAINING_HOURS  = _f("LIP_SAFE_MIN_REMAINING_HOURS", 2.0)
+SAFE_SCHEDULE_BUFFER_HOURS = _f("LIP_SAFE_SCHEDULE_BUFFER_HOURS", 3.0)
+SAFE_WEATHER_BUFFER_HOURS = _f("LIP_SAFE_WEATHER_BUFFER_HOURS", 2.0)
+SAFE_GENERIC_CLOSE_BUFFER_HOURS = _f("LIP_SAFE_GENERIC_CLOSE_BUFFER_HOURS", 24.0)
+MAX_MARKETS_PER_EVENT     = _i("LIP_MAX_MARKETS_PER_EVENT", 1)
+
+SAFE_SCHEDULE_PATTERNS = [s.strip().upper() for s in _s(
+    "LIP_SAFE_SCHEDULE_PATTERNS", "KXWCSTART"
+).split(",") if s.strip()]
+SAFE_WEATHER_PATTERNS = [s.strip().upper() for s in _s(
+    "LIP_SAFE_WEATHER_PATTERNS", "KXRAIN"
+).split(",") if s.strip()]
+SAFE_BLOCK_PATTERNS = [s.strip().upper() for s in _s(
+    "LIP_SAFE_BLOCK_PATTERNS",
+    "MENTION,ELIMINATION,AAAGAS,FIRSTSONG,FINALSONG,TWEET,"
+    "TRUTHSOCIAL,WCPRICE,H100WS,USFLYCAN"
+).split(",") if s.strip()]
 
 # ---------------------------------------------------------------- quoting policy
 SIZE_MULT             = _f("LIP_SIZE_MULT", 1.0)   # our size per side = mult x target_size
